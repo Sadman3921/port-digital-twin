@@ -1,0 +1,3731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Manual Port Road Truck Animation</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+
+<style>
+  html, body {
+    height:100%;
+    margin:0;
+    font-family:Arial, sans-serif;
+  }
+
+  #map {
+    height:100%;
+    width:100%;
+  }
+
+  .panel {
+    position:absolute;
+    top:10px;
+    left:10px;
+    z-index:1000;
+    width:340px;
+    max-width:calc(100vw - 32px);
+    max-height:calc(100vh - 28px);
+    overflow:auto;
+    background:rgba(255,255,255,0.94);
+    padding:10px 12px;
+    border-radius:12px;
+    box-shadow:0 2px 14px rgba(0,0,0,0.25);
+    line-height:1.28;
+  }
+
+  .panel.compact {
+    width:310px;
+    max-height:255px;
+    overflow:hidden;
+  }
+
+  .panel.compact .advanced-panel,
+  .panel.compact details,
+  .panel.compact #summaryPills,
+  .panel.compact #dwellInfo,
+  .panel.compact #pointInfo,
+  .panel.compact .legend-row {
+    display:none !important;
+  }
+
+  .panel h3 {
+    margin:0 0 6px 0;
+    font-size:16px;
+  }
+
+  .panel-toggle {
+    float:right;
+    width:auto;
+    padding:4px 8px;
+    font-size:12px;
+    margin-left:8px;
+  }
+
+  .row {
+    margin:8px 0;
+  }
+
+  select,
+  input[type=range],
+  input[type=date],
+  button,
+  input[type=file] {
+    width:100%;
+    box-sizing:border-box;
+  }
+
+  button {
+    padding:7px 8px;
+    cursor:pointer;
+  }
+
+  .buttons3 {
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:6px;
+  }
+
+  .buttons2 {
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:6px;
+  }
+
+  .buttons4 {
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:5px;
+  }
+
+  .meta {
+    font-size:13px;
+    color:#222;
+  }
+
+  .small {
+    font-size:12px;
+    color:#555;
+  }
+
+  .pill {
+    display:inline-block;
+    background:#f1f1f1;
+    border-radius:999px;
+    padding:2px 8px;
+    margin:2px 2px 2px 0;
+    font-size:12px;
+  }
+
+  .legend-dot {
+    display:inline-block;
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    margin-right:4px;
+  }
+
+  .phase {
+    font-weight:bold;
+    padding:2px 6px;
+    border-radius:6px;
+    background:#eee;
+  }
+
+  details {
+    background:#fafafa;
+    border:1px solid #ddd;
+    border-radius:8px;
+    padding:8px;
+  }
+
+  .dwell-box {
+    border-radius:8px;
+    padding:8px;
+    margin-top:8px;
+    font-size:13px;
+  }
+
+  .port-dwell {
+    background:#fff4cc;
+    border:1px solid #e6b800;
+    color:#604800;
+  }
+
+  .total-dwell {
+    background:#e8f1ff;
+    border:1px solid #4a90e2;
+    color:#163d73;
+  }
+
+  .dwell-title {
+    font-weight:bold;
+  }
+
+  .dwell-range {
+    font-size:12px;
+    margin-top:2px;
+  }
+
+  .truck-icon-wrap {
+    width:26px;
+    height:38px;
+    transform:translate(-13px,-19px);
+  }
+
+  .truck-svg {
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,0.50));
+    transition:transform 120ms linear;
+  }
+
+  .status-badge {
+    display:inline-block;
+    padding:3px 7px;
+    border-radius:999px;
+    color:white;
+    font-weight:bold;
+    font-size:12px;
+    margin-left:4px;
+  }
+
+  .map-status-control {
+    background:rgba(255,255,255,0.94);
+    border-radius:8px;
+    padding:7px 9px;
+    font-size:13px;
+    box-shadow:0 1px 6px rgba(0,0,0,0.25);
+  }
+
+  .routing-note,
+  .routing-status {
+    font-size:11px;
+    color:#555;
+    margin-top:3px;
+  }
+
+  .routing-status {
+    color:#333;
+  }
+
+  .analytics-panel {
+    margin-top:8px;
+  }
+
+  .analytics-summary {
+    margin:6px 0;
+  }
+
+  .analytics-chart-box {
+    height:220px;
+    margin:10px 0;
+    padding:6px;
+    background:#ffffff;
+    border:1px solid #ddd;
+    border-radius:8px;
+  }
+
+  .analytics-chart-box.tall {
+    height:280px;
+  }
+
+  .zone-label {
+    background:rgba(0,0,0,0.72);
+    color:white;
+    border-radius:6px;
+    padding:2px 6px;
+    font-weight:bold;
+    font-size:13px;
+    border:1px solid white;
+  }
+
+  .zone-summary-box {
+    background:#f7fbff;
+    border:1px solid #8ab6e6;
+    border-radius:8px;
+    padding:8px;
+    margin-top:8px;
+    font-size:13px;
+  }
+
+  .zone-chart-box {
+    height:240px;
+    margin:10px 0;
+    padding:6px;
+    background:#ffffff;
+    border:1px solid #ddd;
+    border-radius:8px;
+  }
+
+</style>
+</head>
+
+<body>
+<div id="map"></div>
+
+<div class="panel compact" id="controlPanel">
+  <button class="panel-toggle" id="panelToggleBtn">Expand</button>
+  <h3>Truck Trip Animation</h3>
+
+  <div class="row small advanced-panel">
+    Lifecycle per trip:
+    <strong>Entry Started → Entry Completed → RTLS stops → Exit Started → Exit Completed</strong>
+  </div>
+
+  <div class="advanced-panel">
+    <details open>
+      <summary><strong>Load datasets</strong></summary>
+      <div class="row small">RTLS CSV</div>
+      <input id="rtlsFile" type="file" accept=".csv" multiple />
+
+      <div class="row small">Truck Entering Excel</div>
+      <input id="entryFile" type="file" accept=".xlsx,.xls" />
+
+      <div class="row small">Truck Exiting Excel</div>
+      <input id="exitFile" type="file" accept=".xlsx,.xls" />
+
+      <div class="row">
+        <button id="buildBtn">Build Trip Lifecycle Animation</button>
+      </div>
+    </details>
+  </div>
+
+  <div class="row small" id="summaryPills">
+    <span class="pill">Entry/Exit coordinate: 29.863032, -93.939051</span>
+  </div>
+
+  <div class="row">
+    <label for="dateFilter"><strong>Single Date</strong></label>
+    <select id="dateFilter">
+      <option value="all">Entire dataset</option>
+    </select>
+    <div class="small advanced-panel">
+      Single-date filtering is based on Entry Start time.
+    </div>
+  </div>
+
+  <div class="row advanced-panel">
+    <label><strong>Date Range</strong></label>
+    <div class="buttons2">
+      <input id="dateFrom" type="date" />
+      <input id="dateTo" type="date" />
+    </div>
+    <div class="row buttons2">
+      <button id="applyDateRangeBtn">Apply Date Range</button>
+      <button id="clearDateRangeBtn">Clear Range</button>
+    </div>
+    <div class="small">
+      Date range overrides the single-date dropdown. Example: 2026-05-01 to 2026-05-07.
+    </div>
+  </div>
+
+  <div class="row advanced-panel">
+    <label for="sourceMode"><strong>RTLS source filter</strong></label>
+    <select id="sourceMode">
+      <option value="all">all: loc0 + wifi + gps</option>
+      <option value="loc0">loc0 only</option>
+      <option value="wifi">wifi only</option>
+      <option value="gps">gps only</option>
+      <option value="loc0+gps">loc0 + gps</option>
+      <option value="loc0+wifi">loc0 + wifi</option>
+      <option value="wifi+gps">wifi + gps</option>
+    </select>
+  </div>
+
+  <div class="row advanced-panel">
+    <label for="routeMode"><strong>Path display mode</strong></label>
+    <select id="routeMode">
+      <option value="manual" selected>Saved manual port road</option>
+      <option value="direct">Direct GPS point connection</option>
+    </select>
+    <div class="routing-note">
+      Manual mode uses your drawn internal port road. The truck snaps each RTLS point to the nearest saved road point, drives along the saved road, pauses at stops, and returns to the command center/main gate for exit.
+    </div>
+    <div class="routing-status" id="routingStatus">Path status: no saved road loaded</div>
+  </div>
+
+  <div class="row advanced-panel">
+    <details>
+      <summary><strong>Manual Port Road Editor</strong></summary>
+
+      <div class="small">
+        Click <b>Draw/Edit</b>, then click on the satellite map to draw internal truck roads.
+        Use <b>New Segment</b> for branches. Save once; it will load automatically next time in the same browser.
+      </div>
+
+      <div class="row buttons2">
+        <button id="drawRoadBtn">Draw/Edit Road</button>
+        <button id="finishDrawBtn">Finish Drawing</button>
+      </div>
+
+      <div class="row buttons4">
+        <button id="newSegmentBtn">New Segment</button>
+        <button id="undoRoadBtn">Undo</button>
+        <button id="saveRoadBtn">Save</button>
+        <button id="clearRoadBtn">Clear</button>
+      </div>
+
+      <div class="row">
+        <label for="segmentSelect"><strong>Road segment</strong></label>
+        <select id="segmentSelect"></select>
+      </div>
+
+      <div class="row buttons2">
+        <button id="selectSegmentBtn">Select Segment</button>
+        <button id="deleteSegmentBtn">Delete Selected Segment</button>
+      </div>
+
+      <div class="row buttons2">
+        <button id="exportRoadBtn">Export Road JSON</button>
+        <button id="importRoadBtn">Import Road JSON</button>
+      </div>
+
+      <input id="roadImportFile" type="file" accept=".json" style="display:none" />
+      <div class="small" id="roadEditorStatus">Road editor idle.</div>
+    </details>
+  </div>
+
+  <div class="row advanced-panel">
+    <details>
+      <summary><strong>Warehouse Zone Editor</strong></summary>
+
+      <div class="small">
+        Draw W1–W5 zones around each warehouse front road/loading area.
+        Zone time is calculated using loc0 points only.
+      </div>
+
+      <div class="row">
+        <label for="warehouseZoneSelect"><strong>Warehouse zone</strong></label>
+        <select id="warehouseZoneSelect">
+          <option value="W1">W1</option>
+          <option value="W2">W2</option>
+          <option value="W3">W3</option>
+          <option value="W4">W4</option>
+          <option value="W5">W5</option>
+        </select>
+      </div>
+
+      <div class="row buttons2">
+        <button id="drawZoneBtn">Draw/Edit Zone</button>
+        <button id="finishZoneBtn">Finish Zone</button>
+      </div>
+
+      <div class="row buttons3">
+        <button id="undoZonePointBtn">Undo Point</button>
+        <button id="clearZoneBtn">Clear Zone</button>
+        <button id="saveZonesBtn">Save Zones</button>
+      </div>
+
+      <div class="row buttons2">
+        <button id="exportZonesBtn">Export Zones JSON</button>
+        <button id="importZonesBtn">Import Zones JSON</button>
+      </div>
+
+      <input id="zoneImportFile" type="file" accept=".json" style="display:none" />
+
+      <div class="small" id="zoneEditorStatus">Warehouse zone editor idle.</div>
+    </details>
+  </div>
+
+  <div class="row advanced-panel">
+    <details>
+      <summary><strong>Combined Road + Zone Backup</strong></summary>
+
+      <div class="small">
+        Export or import the manual port road and all W1–W5 warehouse zones together.
+        This is the easiest option for moving the full map setup to another browser/computer.
+      </div>
+
+      <div class="row buttons2">
+        <button id="exportCombinedConfigBtn">Export Road + Zones JSON</button>
+        <button id="importCombinedConfigBtn">Import Road + Zones JSON</button>
+      </div>
+
+      <input id="combinedConfigImportFile" type="file" accept=".json" style="display:none" />
+
+      <div class="small" id="combinedConfigStatus">Combined backup idle.</div>
+    </details>
+  </div>
+
+  <div class="row advanced-panel">
+    <label for="animationMode"><strong>Animation mode</strong></label>
+    <select id="animationMode">
+      <option value="sequential" selected>one trip after another, ordered by entry dataset</option>
+      <option value="single">selected trip only</option>
+    </select>
+  </div>
+
+  <div class="row">
+    <label for="truckSelect"><strong>Trip / placard</strong></label>
+    <select id="truckSelect"></select>
+  </div>
+
+  <div class="row buttons3">
+    <button id="prevBtn">Previous</button>
+    <button id="playPauseBtn">Play</button>
+    <button id="nextBtn">Next</button>
+  </div>
+
+  <div class="row buttons2 advanced-panel">
+    <button id="restartBtn">Restart Trip</button>
+    <button id="toggleTrailBtn">Hide Trail</button>
+  </div>
+
+  <div class="row">
+    <label for="progress"><strong>Trip lifecycle progress</strong></label>
+    <input id="progress" type="range" min="0" max="0" value="0" />
+  </div>
+
+  <div class="row advanced-panel">
+    <label for="speed"><strong>Speed:</strong> <span id="speedValue">250</span> ms/step</label>
+    <input id="speed" type="range" min="50" max="1500" step="50" value="250" />
+  </div>
+
+  <div class="row meta" id="tripInfo">
+    Load the three datasets, then click Build Trip Lifecycle Animation.
+  </div>
+
+  <div class="row meta" id="dwellInfo"></div>
+  <div class="row meta" id="pointInfo"></div>
+
+  <div class="row advanced-panel analytics-panel">
+    <details>
+      <summary><strong>Dwell Analytics</strong></summary>
+
+      <div class="small">
+        Analytics are based on the currently selected single date or date range.
+        Only trips with matched exit completion are included.
+      </div>
+
+      <div id="analyticsSummary" class="analytics-summary"></div>
+
+      <div class="analytics-chart-box">
+        <canvas id="dwellTrendChart"></canvas>
+      </div>
+
+      <div class="analytics-chart-box">
+        <canvas id="dwellHistogramChart"></canvas>
+      </div>
+
+      <div class="analytics-chart-box tall">
+        <canvas id="topDwellChart"></canvas>
+      </div>
+
+      
+
+      <div class="analytics-chart-box">
+        <canvas id="hourlyDwellChart"></canvas>
+      </div>
+
+      <hr>
+
+      <div class="small">
+        Warehouse analytics are based on loc0 points inside W1–W5 zones.
+      </div>
+
+      <div id="warehouseAnalyticsSummary" class="zone-summary-box"></div>
+
+      <div class="zone-chart-box">
+        <canvas id="warehouseAvgChart"></canvas>
+      </div>
+
+      <div class="zone-chart-box">
+        <canvas id="warehouseTotalChart"></canvas>
+      </div>
+
+      <div class="zone-chart-box">
+        <canvas id="warehouseVisitChart"></canvas>
+      </div>
+
+      <div class="zone-chart-box">
+        <canvas id="warehouseTopDelayChart"></canvas>
+      </div>
+
+      <div class="row">
+        <button id="exportAnalyticsBtn">Export Dwell Analytics CSV</button>
+      </div>
+
+
+    </details>
+  </div>
+
+
+  <div class="row small legend-row">
+    <strong>Status colors:</strong><br>
+    <span class="legend-dot" style="background:#2ca02c"></span>entry
+    <span class="legend-dot" style="background:#ff7f0e; margin-left:8px;"></span>loc0
+    <span class="legend-dot" style="background:#1f77b4; margin-left:8px;"></span>wifi
+    <span class="legend-dot" style="background:#9467bd; margin-left:8px;"></span>gps
+    <span class="legend-dot" style="background:#d62728; margin-left:8px;"></span>exit
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   BASIC SETTINGS
+============================================================ */
+
+const ENTRY_GATE = { lat:29.863032, lng:-93.939051 };
+const EXIT_GATE = { lat:29.863032, lng:-93.939051 };
+
+const PORT_BOUNDS = {
+  south:29.8568,
+  west:-93.9472,
+  north:29.8662,
+  east:-93.9344
+};
+
+const ROAD_STORAGE_KEY = "portArthurManualRoadSegmentsV1";
+
+const WAREHOUSE_ZONE_STORAGE_KEY = "portArthurWarehouseZonesV1";
+
+const WAREHOUSE_ZONE_NAMES = ["W1", "W2", "W3", "W4", "W5"];
+
+// This cap prevents one missing loc0 point from creating fake multi-hour warehouse time.
+const MAX_ZONE_GAP_MINUTES = 20;
+
+const ROAD_CONNECT_THRESHOLD_METERS = 25;
+const MAX_MANUAL_SNAP_DISTANCE_METERS = 180;
+
+// Creates extra graph nodes along long road segments.
+// This makes snapping work to the road line, not only to clicked vertices.
+const ROAD_GRAPH_NODE_SPACING_METERS = 12;
+
+const sourceModes = {
+  all:["loc0","wifi","gps"],
+  loc0:["loc0"],
+  wifi:["wifi"],
+  gps:["gps"],
+  "loc0+gps":["loc0","gps"],
+  "loc0+wifi":["loc0","wifi"],
+  "wifi+gps":["wifi","gps"]
+};
+
+const sourceColors = {
+  entry:"#2ca02c",
+  loc0:"#ff7f0e",
+  wifi:"#1f77b4",
+  gps:"#9467bd",
+  exit:"#d62728"
+};
+
+/* ============================================================
+   MAP
+============================================================ */
+
+const map = L.map("map").setView([ENTRY_GATE.lat, ENTRY_GATE.lng], 17);
+
+L.tileLayer(
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  { attribution:"Tiles © Esri" }
+).addTo(map);
+
+/* ============================================================
+   GLOBAL STATE
+============================================================ */
+
+let allTrips = [];
+let trips = [];
+let currentTripIndex = 0;
+let currentStepIndex = 0;
+let playing = false;
+let timer = null;
+let showTrail = true;
+
+let manualRoadSegments = [];
+let drawingRoad = false;
+let currentDrawSegment = 0;
+let manualRoadGraph = null;
+
+let latestRoute = [];
+let latestStopFractions = [];
+let lastTruckBearing = 0;
+
+let dwellTrendChart = null;
+let dwellHistogramChart = null;
+let topDwellChart = null;
+let hourlyDwellChart = null;
+
+
+let warehouseZones = {
+  W1: [],
+  W2: [],
+  W3: [],
+  W4: [],
+  W5: []
+};
+
+let drawingZone = false;
+let selectedZoneName = "W1";
+
+let warehouseAvgChart = null;
+let warehouseTotalChart = null;
+let warehouseVisitChart = null;
+let warehouseTopDelayChart = null;
+
+/* ============================================================
+   DOM ELEMENTS
+============================================================ */
+
+const rtlsFile = document.getElementById("rtlsFile");
+const entryFile = document.getElementById("entryFile");
+const exitFile = document.getElementById("exitFile");
+const buildBtn = document.getElementById("buildBtn");
+
+
+
+const dateFilter = document.getElementById("dateFilter");
+const dateFrom = document.getElementById("dateFrom");
+const dateTo = document.getElementById("dateTo");
+const applyDateRangeBtn = document.getElementById("applyDateRangeBtn");
+const clearDateRangeBtn = document.getElementById("clearDateRangeBtn");
+const sourceMode = document.getElementById("sourceMode");
+
+
+
+const routeMode = document.getElementById("routeMode");
+const routingStatus = document.getElementById("routingStatus");
+const animationMode = document.getElementById("animationMode");
+const truckSelect = document.getElementById("truckSelect");
+const progress = document.getElementById("progress");
+const speed = document.getElementById("speed");
+const speedValue = document.getElementById("speedValue");
+
+const playPauseBtn = document.getElementById("playPauseBtn");
+const prevBtn = document.getElementById("prevBtn");
+const nextBtn = document.getElementById("nextBtn");
+const restartBtn = document.getElementById("restartBtn");
+const toggleTrailBtn = document.getElementById("toggleTrailBtn");
+
+const tripInfo = document.getElementById("tripInfo");
+const dwellInfo = document.getElementById("dwellInfo");
+const pointInfo = document.getElementById("pointInfo");
+const summaryPills = document.getElementById("summaryPills");
+
+const analyticsSummary = document.getElementById("analyticsSummary");
+const dwellTrendCanvas = document.getElementById("dwellTrendChart");
+const dwellHistogramCanvas = document.getElementById("dwellHistogramChart");
+const topDwellCanvas = document.getElementById("topDwellChart");
+const hourlyDwellCanvas = document.getElementById("hourlyDwellChart");
+const exportAnalyticsBtn = document.getElementById("exportAnalyticsBtn");
+
+const warehouseZoneSelect = document.getElementById("warehouseZoneSelect");
+const drawZoneBtn = document.getElementById("drawZoneBtn");
+const finishZoneBtn = document.getElementById("finishZoneBtn");
+const undoZonePointBtn = document.getElementById("undoZonePointBtn");
+const clearZoneBtn = document.getElementById("clearZoneBtn");
+const saveZonesBtn = document.getElementById("saveZonesBtn");
+const exportZonesBtn = document.getElementById("exportZonesBtn");
+const importZonesBtn = document.getElementById("importZonesBtn");
+const zoneImportFile = document.getElementById("zoneImportFile");
+const zoneEditorStatus = document.getElementById("zoneEditorStatus");
+
+const exportCombinedConfigBtn = document.getElementById("exportCombinedConfigBtn");
+const importCombinedConfigBtn = document.getElementById("importCombinedConfigBtn");
+const combinedConfigImportFile = document.getElementById("combinedConfigImportFile");
+const combinedConfigStatus = document.getElementById("combinedConfigStatus");
+
+const warehouseAnalyticsSummary = document.getElementById("warehouseAnalyticsSummary");
+const warehouseAvgCanvas = document.getElementById("warehouseAvgChart");
+const warehouseTotalCanvas = document.getElementById("warehouseTotalChart");
+const warehouseVisitCanvas = document.getElementById("warehouseVisitChart");
+const warehouseTopDelayCanvas = document.getElementById("warehouseTopDelayChart");
+
+const controlPanel = document.getElementById("controlPanel");
+const panelToggleBtn = document.getElementById("panelToggleBtn");
+
+const drawRoadBtn = document.getElementById("drawRoadBtn");
+const finishDrawBtn = document.getElementById("finishDrawBtn");
+const newSegmentBtn = document.getElementById("newSegmentBtn");
+const undoRoadBtn = document.getElementById("undoRoadBtn");
+const saveRoadBtn = document.getElementById("saveRoadBtn");
+const clearRoadBtn = document.getElementById("clearRoadBtn");
+const segmentSelect = document.getElementById("segmentSelect");
+const selectSegmentBtn = document.getElementById("selectSegmentBtn");
+const deleteSegmentBtn = document.getElementById("deleteSegmentBtn");
+
+
+const exportRoadBtn = document.getElementById("exportRoadBtn");
+const importRoadBtn = document.getElementById("importRoadBtn");
+const roadImportFile = document.getElementById("roadImportFile");
+const roadEditorStatus = document.getElementById("roadEditorStatus");
+
+/* ============================================================
+   MAP LAYERS
+============================================================ */
+
+const roadOutline = L.polyline([], {
+  weight:7,
+  opacity:0.65,
+  color:"#1f5fd1",
+  lineCap:"round",
+  lineJoin:"round"
+}).addTo(map);
+
+const fullLine = L.polyline([], {
+  weight:4,
+  opacity:0.88,
+  color:"#4c8dff",
+  lineCap:"round",
+  lineJoin:"round"
+}).addTo(map);
+
+const activeLine = L.polyline([], {
+  weight:4,
+  opacity:1.00,
+  color:"#0057ff",
+  lineCap:"round",
+  lineJoin:"round"
+}).addTo(map);
+
+const manualRoadLayer = L.layerGroup().addTo(map);
+
+const warehouseZoneLayer = L.layerGroup().addTo(map);
+
+/* ============================================================
+   TRUCK ICON
+============================================================ */
+
+function truckIconTopView(angleDeg = 0) {
+  return L.divIcon({
+    className:"",
+    iconSize:[26,38],
+    iconAnchor:[13,19],
+    html:`
+      <div class="truck-icon-wrap">
+        <svg class="truck-svg" viewBox="0 0 40 64" width="26" height="38"
+             style="transform:rotate(${angleDeg}deg); transform-origin:20px 32px;">
+          <path d="M9 5 L31 5 L35 15 L31 24 L9 24 L5 15 Z"
+                fill="#1565c0" stroke="#ffffff" stroke-width="2"/>
+          <rect x="12" y="9" width="16" height="6" rx="1" fill="#90caf9"/>
+          <rect x="11" y="17" width="18" height="4" rx="1" fill="#0d47a1" opacity="0.75"/>
+          <rect x="15" y="25" width="10" height="4" rx="1" fill="#455a64"/>
+          <rect x="7" y="29" width="26" height="30" rx="3"
+                fill="#e9eef4" stroke="#263238" stroke-width="2"/>
+          <line x1="12" y1="36" x2="28" y2="36" stroke="#b0bec5"/>
+          <line x1="12" y1="44" x2="28" y2="44" stroke="#b0bec5"/>
+          <line x1="12" y1="52" x2="28" y2="52" stroke="#b0bec5"/>
+          <rect x="2" y="10" width="4" height="8" rx="1" fill="#111"/>
+          <rect x="34" y="10" width="4" height="8" rx="1" fill="#111"/>
+          <rect x="2" y="21" width="4" height="8" rx="1" fill="#111"/>
+          <rect x="34" y="21" width="4" height="8" rx="1" fill="#111"/>
+          <rect x="3" y="34" width="4" height="8" rx="1" fill="#111"/>
+          <rect x="33" y="34" width="4" height="8" rx="1" fill="#111"/>
+          <rect x="3" y="48" width="4" height="8" rx="1" fill="#111"/>
+          <rect x="33" y="48" width="4" height="8" rx="1" fill="#111"/>
+        </svg>
+      </div>
+    `
+  });
+}
+
+const marker = L.marker(
+  [ENTRY_GATE.lat, ENTRY_GATE.lng],
+  { icon:truckIconTopView(0), opacity:0 }
+).addTo(map);
+
+/* ============================================================
+   MAP STATUS BADGE
+============================================================ */
+
+let mapStatusBadgeEl = null;
+
+const statusControl = L.control({position:"topright"});
+
+statusControl.onAdd = function() {
+  const div = L.DomUtil.create("div", "map-status-control");
+  div.innerHTML = "Status: idle";
+  mapStatusBadgeEl = div;
+  return div;
+};
+
+statusControl.addTo(map);
+
+/* ============================================================
+   FILE PARSING
+============================================================ */
+
+function parseCSV(text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quote = false;
+
+  for (let i=0; i<text.length; i++) {
+    const c = text[i];
+    const n = text[i+1];
+
+    if (c === '"' && quote && n === '"') {
+      cell += '"';
+      i++;
+    } else if (c === '"') {
+      quote = !quote;
+    } else if (c === "," && !quote) {
+      row.push(cell);
+      cell = "";
+    } else if ((c === "\n" || c === "\r") && !quote) {
+      if (cell.length || row.length) {
+        row.push(cell);
+        rows.push(row);
+        row = [];
+        cell = "";
+      }
+      if (c === "\r" && n === "\n") i++;
+    } else {
+      cell += c;
+    }
+  }
+
+  if (cell.length || row.length) {
+    row.push(cell);
+    rows.push(row);
+  }
+
+  if (!rows.length) return [];
+
+  const headers = rows[0].map(h => String(h).trim());
+
+  return rows.slice(1).map(r =>
+    Object.fromEntries(headers.map((h,i) => [h, r[i] ?? ""]))
+  );
+}
+
+function readFileText(file) {
+  return new Promise((resolve,reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = reject;
+    reader.readAsText(file);
+  });
+}
+
+function readExcel(file) {
+  return new Promise((resolve,reject) => {
+    const reader = new FileReader();
+
+    reader.onload = e => {
+      const wb = XLSX.read(new Uint8Array(e.target.result), {type:"array"});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      resolve(XLSX.utils.sheet_to_json(ws, {defval:""}));
+    };
+
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function readAllCSVFiles(fileList) {
+  const files = Array.from(fileList || []);
+  const allRows = [];
+
+  for (const file of files) {
+    const text = await readFileText(file);
+    const rows = parseCSV(text);
+
+    rows.forEach(r => {
+      r.__sourceFile = file.name;
+      allRows.push(r);
+    });
+  }
+
+  return allRows;
+}
+/* ============================================================
+   TIME / DATA CLEANING
+============================================================ */
+
+function parseTime(v) {
+  if (v === undefined || v === null || v === "") return null;
+
+  if (typeof v === "number") {
+    const d = XLSX.SSF.parse_date_code(v);
+    if (d) {
+      return new Date(
+        d.y, d.m-1, d.d,
+        d.H || 0,
+        d.M || 0,
+        Math.floor(d.S || 0)
+      );
+    }
+  }
+
+  const s = String(v).trim();
+  let d = new Date(s);
+  if (!isNaN(d)) return d;
+
+  const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+
+  if (m) {
+    let hh = Number(m[4]);
+    const ap = m[7]?.toUpperCase();
+
+    if (ap === "PM" && hh < 12) hh += 12;
+    if (ap === "AM" && hh === 12) hh = 0;
+
+    return new Date(
+      Number(m[3]),
+      Number(m[1])-1,
+      Number(m[2]),
+      hh,
+      Number(m[5]),
+      Number(m[6] || 0)
+    );
+  }
+
+  return null;
+}
+
+function fmtTime(d) {
+  if (!d) return "N/A";
+  const pad = n => String(n).padStart(2,"0");
+
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function dateKey(d) {
+  if (!d) return "";
+  const pad = n => String(n).padStart(2,"0");
+
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+function normalizeKey(s) {
+  return String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function getAny(row, names) {
+  const keys = Object.keys(row);
+
+  for (const n of names) {
+    const target = normalizeKey(n);
+    const k = keys.find(x =>
+      normalizeKey(x) === target ||
+      normalizeKey(x).includes(target)
+    );
+
+    if (k && row[k] !== "") return row[k];
+  }
+
+  return "";
+}
+
+function parseCoordinate(value) {
+  if (value === undefined || value === null) return null;
+
+  const s = String(value).trim();
+
+  if (s === "" || ["nan","null","none"].includes(s.toLowerCase())) {
+    return null;
+  }
+
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+function summarizeRow(row) {
+  return Object.entries(row)
+    .filter(([k,v]) => v !== "" && v !== null && v !== undefined)
+    .slice(0,10)
+    .map(([k,v]) => `${k}: ${v}`)
+    .join(" | ");
+}
+
+function extractPlacardFromText(text, allowBareNumber=false) {
+  const s = String(text || "").trim();
+
+  let m = s.match(/placard\s*#?\s*(\d+)/i);
+  if (m) return `Placard ${Number(m[1])}`;
+
+  m = s.match(/\b(?:tag|card|badge)\s*#?\s*(\d+)\b/i);
+  if (m) return `Placard ${Number(m[1])}`;
+
+  if (allowBareNumber) {
+    m = s.match(/^\s*(\d{1,3})\s*$/);
+    if (m) return `Placard ${Number(m[1])}`;
+  }
+
+  return "";
+}
+
+function extractEntryExitPlacard(row) {
+  const exactPlacardKey = Object.keys(row).find(k =>
+    normalizeKey(k) === "placard" ||
+    normalizeKey(k) === "placardnumber"
+  );
+
+  if (exactPlacardKey) {
+    const p = extractPlacardFromText(row[exactPlacardKey], true);
+    if (p) return p;
+  }
+
+  const preferred = getAny(row, ["Truck Placard", "Placard", "Placard Number"]);
+  return preferred ? extractPlacardFromText(preferred, true) : "";
+}
+
+function firstTimeFromColumns(row, columnHints) {
+  const keys = Object.keys(row);
+
+  for (const hint of columnHints) {
+    const target = normalizeKey(hint);
+
+    const k = keys.find(x =>
+      normalizeKey(x) === target ||
+      normalizeKey(x).includes(target)
+    );
+
+    if (k) {
+      const d = parseTime(row[k]);
+      if (d) return d;
+    }
+  }
+
+  return null;
+}
+
+function formatDuration(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return "N/A";
+
+  const totalSeconds = Math.floor(ms / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const parts = [];
+
+  if (days) parts.push(`${days}d`);
+  if (hours || days) parts.push(`${hours}h`);
+
+  parts.push(`${minutes}m`);
+
+  if (!days && !hours) parts.push(`${seconds}s`);
+
+  return parts.join(" ");
+}
+
+/* ============================================================
+   DATA PROCESSING
+============================================================ */
+
+function tripSortKey(t) {
+  return t.entry?.rowOrder ?? 999999;
+}
+
+function processRTLS(rows) {
+  const out = new Map();
+
+  rows.forEach(r => {
+    const lat = parseCoordinate(r["Latitude (mqtt_history)"]);
+    const lng = parseCoordinate(r["Longitude (mqtt_history)"]);
+    const time = parseTime(r["Event Time (Timezone)"]);
+    const source = String(r["Location Source"] || "").trim().toLowerCase();
+    const tagNameRaw = String(r["Tag Name"] || "").trim();
+    const placard = extractPlacardFromText(tagNameRaw, false);
+
+    if (!placard || lat === null || lng === null || !time) return;
+    if (!["loc0","wifi","gps"].includes(source)) return;
+    if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return;
+
+    if (!out.has(placard)) out.set(placard, []);
+
+    out.get(placard).push({
+      lat,
+      lng,
+      time:fmtTime(time),
+      timeObj:time,
+      source,
+      mac:String(r["MAC Address"] || ""),
+      phase:"INSIDE_PORT_RTLS",
+      info:`RTLS Tag Name: ${tagNameRaw} | MAC: ${String(r["MAC Address"] || "N/A")}`
+    });
+  });
+
+  for (const pts of out.values()) {
+    pts.sort((a,b) => a.timeObj - b.timeObj);
+  }
+
+  return out;
+}
+
+function processEntry(rows) {
+  const entries = [];
+
+  rows.forEach((r, idx) => {
+    const placard = extractEntryExitPlacard(r);
+
+    const startTime = firstTimeFromColumns(r, [
+      "Start time", "Start Time", "Entry Start", "Gate In", "Arrival"
+    ]);
+
+    const completionTime = firstTimeFromColumns(r, [
+      "Completion time", "Completion Time", "Entry Complete",
+      "Entry Completed", "Completed At", "End Time"
+    ]);
+
+    if (!placard || !startTime || !completionTime) return;
+
+    entries.push({
+      placard,
+      rowOrder:idx,
+      startTimeObj:startTime,
+      completionTimeObj:completionTime,
+      startTime:fmtTime(startTime),
+      completionTime:fmtTime(completionTime),
+      date:dateKey(startTime),
+      lat:ENTRY_GATE.lat,
+      lng:ENTRY_GATE.lng,
+      raw:summarizeRow(r)
+    });
+  });
+
+  return entries.sort((a,b) => a.rowOrder - b.rowOrder);
+}
+
+function processExit(rows) {
+  const byPlacard = new Map();
+
+  rows.forEach((r, idx) => {
+    const placard = extractEntryExitPlacard(r);
+
+    const startTime = firstTimeFromColumns(r, [
+      "Start time", "Start Time", "Exit Start", "Gate Out", "Check Out"
+    ]);
+
+    const completionTime = firstTimeFromColumns(r, [
+      "Completion time", "Completion Time", "Exit Complete",
+      "Exit Completed", "Completed At", "End Time"
+    ]);
+
+    if (!placard || !startTime || !completionTime) return;
+
+    const exit = {
+      placard,
+      rowOrder:idx,
+      startTimeObj:startTime,
+      completionTimeObj:completionTime,
+      startTime:fmtTime(startTime),
+      completionTime:fmtTime(completionTime),
+      lat:EXIT_GATE.lat,
+      lng:EXIT_GATE.lng,
+      raw:summarizeRow(r),
+      used:false
+    };
+
+    if (!byPlacard.has(placard)) byPlacard.set(placard, []);
+    byPlacard.get(placard).push(exit);
+  });
+
+  for (const vals of byPlacard.values()) {
+    vals.sort((a,b) => a.startTimeObj - b.startTimeObj);
+  }
+
+  return byPlacard;
+}
+
+function matchExitForEntry(entry, exitsByPlacard) {
+  const exits = exitsByPlacard.get(entry.placard) || [];
+
+  const candidates = exits.filter(e =>
+    !e.used &&
+    dateKey(e.startTimeObj) === entry.date &&
+    e.startTimeObj >= entry.completionTimeObj
+  );
+
+  if (!candidates.length) return null;
+
+  const match = candidates[0];
+  match.used = true;
+  return match;
+}
+
+function buildTripDwell(entry, exit) {
+  if (!entry || !exit) return null;
+
+  return {
+    portDuration: formatDuration(exit.completionTimeObj - entry.completionTimeObj),
+    portRange: `${entry.completionTime} → ${exit.completionTime}`
+  };
+}
+
+function buildTrips(entries, exitsByPlacard, rtlsMap) {
+  return entries.map((entry, i) => {
+    const exit = matchExitForEntry(entry, exitsByPlacard);
+    const rtlsAll = rtlsMap.get(entry.placard) || [];
+
+    const rtlsWindow = exit
+      ? rtlsAll.filter(p =>
+          p.timeObj >= entry.completionTimeObj &&
+          p.timeObj <= exit.completionTimeObj
+        )
+      : rtlsAll.filter(p =>
+          p.timeObj >= entry.completionTimeObj &&
+          dateKey(p.timeObj) === entry.date
+        );
+        
+    const steps = [];
+
+    steps.push({
+      lat:entry.lat,
+      lng:entry.lng,
+      time:entry.startTime,
+      timeObj:entry.startTimeObj,
+      source:"entry",
+      phase:"ENTRY_STARTED",
+      info:entry.raw
+    });
+
+    steps.push({
+      lat:entry.lat,
+      lng:entry.lng,
+      time:entry.completionTime,
+      timeObj:entry.completionTimeObj,
+      source:"entry",
+      phase:"ENTRY_COMPLETED",
+      info:entry.raw
+    });
+
+    rtlsWindow.forEach(p => steps.push({...p}));
+
+    if (exit) {
+      steps.push({
+        lat:exit.lat,
+        lng:exit.lng,
+        time:exit.startTime,
+        timeObj:exit.startTimeObj,
+        source:"exit",
+        phase:"EXIT_STARTED",
+        info:exit.raw
+      });
+
+      steps.push({
+        lat:exit.lat,
+        lng:exit.lng,
+        time:exit.completionTime,
+        timeObj:exit.completionTimeObj,
+        source:"exit",
+        phase:"EXIT_COMPLETED",
+        info:exit.raw
+      });
+    }
+
+    steps.sort((a,b) => a.timeObj - b.timeObj);
+
+    return {
+      id:`${entry.placard} | ${entry.startTime}`,
+      placard:entry.placard,
+      date:entry.date,
+      entry,
+      exit,
+      dwell:buildTripDwell(entry, exit),
+      steps,
+      rtlsCount:rtlsWindow.length,
+      rowOrder:entry.rowOrder,
+      tripNumber:i+1
+    };
+  });
+}
+
+/* ============================================================
+   DATE / FILTERING
+============================================================ */
+
+function refreshDateFilter() {
+  const old = dateFilter.value || "all";
+
+  const dates = Array.from(
+    new Set(allTrips.map(t => t.date).filter(Boolean))
+  ).sort();
+
+  dateFilter.innerHTML = '<option value="all">Entire dataset</option>';
+
+  dates.forEach(d => {
+    const opt = document.createElement("option");
+    opt.value = d;
+    opt.textContent = d;
+    dateFilter.appendChild(opt);
+  });
+
+  dateFilter.value = dates.includes(old) ? old : "all";
+
+  if (dates.length) {
+    dateFrom.min = dates[0];
+    dateFrom.max = dates[dates.length - 1];
+    dateTo.min = dates[0];
+    dateTo.max = dates[dates.length - 1];
+  }
+}
+
+function filteredSteps(t) {
+  const allowed = new Set(sourceModes[sourceMode.value]);
+
+  return t.steps.filter(s =>
+    s.phase !== "INSIDE_PORT_RTLS" ||
+    allowed.has(s.source)
+  );
+}
+
+function currentTrip() {
+  return trips[currentTripIndex];
+}
+
+function currentSteps() {
+  return currentTrip() ? filteredSteps(currentTrip()) : [];
+}
+
+function tripHasSteps(i) {
+  return trips[i] && filteredSteps(trips[i]).length > 0;
+}
+
+function findNextTrip(start, dir) {
+  if (!trips.length) return 0;
+
+  let idx = start;
+
+  for (let k=0; k<trips.length; k++) {
+    idx = (idx + dir + trips.length) % trips.length;
+    if (tripHasSteps(idx)) return idx;
+  }
+
+  return start;
+}
+
+function populateTripSelect() {
+  truckSelect.innerHTML = "";
+
+  trips.forEach((t,i) => {
+    const opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent =
+      `${String(i+1).padStart(3,"0")}. ${t.placard} | entry ${t.entry.startTime} | exit ${t.exit ? t.exit.startTime : "not matched"} | ${t.rtlsCount} RTLS`;
+    truckSelect.appendChild(opt);
+  });
+}
+
+function activeDateFilterLabel() {
+  const from = dateFrom.value;
+  const to = dateTo.value;
+
+  if (from || to) {
+    const start = from || "start";
+    const end = to || "end";
+    return `Date range: ${start} → ${end}`;
+  }
+
+  return dateFilter.value === "all" ? "Entire dataset" : dateFilter.value;
+}
+
+function applyDateFilter() {
+  const selected = dateFilter.value || "all";
+  const from = dateFrom.value;
+  const to = dateTo.value;
+
+  if (from || to) {
+    trips = allTrips.filter(t => {
+      if (!t.date) return false;
+      if (from && t.date < from) return false;
+      if (to && t.date > to) return false;
+      return true;
+    });
+  } else {
+    trips = selected === "all"
+      ? [...allTrips]
+      : allTrips.filter(t => t.date === selected);
+  }
+
+  trips.sort((a,b) => tripSortKey(a) - tripSortKey(b));
+
+  populateTripSelect();
+
+  currentTripIndex = Math.min(currentTripIndex, Math.max(0, trips.length-1));
+  currentStepIndex = 0;
+  latestRoute = [];
+  latestStopFractions = [];
+
+  if (trips.length) {
+    fitCurrent();
+    render();
+  } else {
+    roadOutline.setLatLngs([]);
+    activeLine.setLatLngs([]);
+    fullLine.setLatLngs([]);
+    marker.setOpacity(0);
+    tripInfo.textContent = "No trips found for this date/date range filter.";
+    dwellInfo.innerHTML = "";
+    pointInfo.innerHTML = "";
+  }
+
+  updateSummary();
+  renderAnalytics();
+}
+
+function updateSummary() {
+  
+  const selected = activeDateFilterLabel();
+
+  const withExit = trips.filter(t => !!t.exit).length;
+  const rtlsCount = trips.reduce((s,t) => s + t.rtlsCount, 0);
+
+  summaryPills.innerHTML =
+    `<span class="pill">${selected}</span>` +
+    `<span class="pill">${trips.length} trips from entry dataset</span>` +
+    `<span class="pill">${withExit} same-day matched exits</span>` +
+    `<span class="pill">${rtlsCount} RTLS points inside matched windows</span>` +
+    `<span class="pill">Manual road segments: ${manualRoadSegments.length}</span>`;
+}
+
+/* ============================================================
+   GEOMETRY HELPERS
+============================================================ */
+
+function isInsidePortBounds(lat,lng) {
+  return (
+    lat >= PORT_BOUNDS.south &&
+    lat <= PORT_BOUNDS.north &&
+    lng >= PORT_BOUNDS.west &&
+    lng <= PORT_BOUNDS.east
+  );
+}
+
+function distanceMeters(a,b) {
+  const R = 6371000;
+
+  const lat1 = a[0] * Math.PI / 180;
+  const lat2 = b[0] * Math.PI / 180;
+  const dlat = (b[0]-a[0]) * Math.PI / 180;
+  const dlng = (b[1]-a[1]) * Math.PI / 180;
+
+  const x =
+    Math.sin(dlat/2)**2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dlng/2)**2;
+
+  return 2 * R * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+}
+
+function bearingDegrees(from,to) {
+  if (!from || !to) return lastTruckBearing;
+
+  const lat1 = from[0] * Math.PI / 180;
+  const lat2 = to[0] * Math.PI / 180;
+  const dLon = (to[1] - from[1]) * Math.PI / 180;
+
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x =
+    Math.cos(lat1) * Math.sin(lat2) -
+    Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+
+  lastTruckBearing = (Math.atan2(y,x) * 180 / Math.PI + 360) % 360;
+  return lastTruckBearing;
+}
+
+function routeLength(route) {
+  let total = 0;
+
+  for (let i=0; i<route.length-1; i++) {
+    total += distanceMeters(route[i], route[i+1]);
+  }
+
+  return total;
+}
+
+function positionOnRouteForProgress(route, frac) {
+  if (!route.length) return null;
+  if (route.length === 1) return [route[0][0], route[0][1], 0];
+
+  let lens = [];
+  let total = 0;
+
+  for (let i=0; i<route.length-1; i++) {
+    const d = distanceMeters(route[i], route[i+1]);
+    lens.push(d);
+    total += d;
+  }
+
+  let target = Math.max(0, Math.min(1, frac)) * total;
+
+  for (let i=0; i<lens.length; i++) {
+    if (target <= lens[i]) {
+      const t = lens[i] === 0 ? 0 : target / lens[i];
+
+      return [
+        route[i][0] + (route[i+1][0] - route[i][0]) * t,
+        route[i][1] + (route[i+1][1] - route[i][1]) * t,
+        i
+      ];
+    }
+
+    target -= lens[i];
+  }
+
+  return [
+    route[route.length-1][0],
+    route[route.length-1][1],
+    route.length-2
+  ];
+}
+
+function subRouteToFraction(route, frac) {
+  if (!route.length) return [];
+  if (route.length === 1) return route;
+
+  const pos = positionOnRouteForProgress(route, frac);
+  const idx = pos ? pos[2] : 0;
+
+  const out = route.slice(0, idx+1);
+
+  if (pos) out.push([pos[0], pos[1]]);
+
+  return out;
+}
+
+function bearingForRouteProgress(route, frac) {
+  if (route.length < 2) return lastTruckBearing;
+
+  const pos = positionOnRouteForProgress(route, frac);
+  if (!pos) return lastTruckBearing;
+
+  const idx = Math.max(0, Math.min(route.length-2, pos[2] ?? 0));
+  return bearingDegrees(route[idx], route[idx+1]);
+}
+
+function directPath(points) {
+  return points
+    .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng))
+    .map(p => [p.lat, p.lng]);
+}
+
+/* ============================================================
+   MANUAL ROAD EDITOR
+============================================================ */
+
+function renderManualRoad() {
+  manualRoadLayer.clearLayers();
+
+  manualRoadSegments.forEach((seg, idx) => {
+    if (!seg.length) return;
+
+    L.polyline(
+      seg.map(p => [p.lat, p.lng]),
+      {
+        color:"#ff3030",
+        weight:3,
+        opacity:0.9,
+        dashArray:idx === currentDrawSegment && drawingRoad ? null : "8,5"
+      }
+    ).addTo(manualRoadLayer);
+
+    seg.forEach(p => {
+      L.circleMarker(
+        [p.lat,p.lng],
+        {
+          radius:3,
+          color:"#ff3030",
+          fillColor:"#ff3030",
+          fillOpacity:1,
+          weight:1
+        }
+      ).addTo(manualRoadLayer);
+    });
+  });
+
+  refreshSegmentSelect();
+  updateRoadEditorStatus();
+}
+
+function refreshSegmentSelect() {
+  if (!segmentSelect) return;
+
+  segmentSelect.innerHTML = "";
+
+  if (!manualRoadSegments.length) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No segments available";
+    segmentSelect.appendChild(opt);
+    return;
+  }
+
+  manualRoadSegments.forEach((seg, idx) => {
+    const opt = document.createElement("option");
+    opt.value = idx;
+    opt.textContent = `Segment ${idx + 1} (${seg.length} points)`;
+    segmentSelect.appendChild(opt);
+  });
+
+  if (currentDrawSegment >= manualRoadSegments.length) {
+    currentDrawSegment = Math.max(0, manualRoadSegments.length - 1);
+  }
+
+  segmentSelect.value = String(currentDrawSegment);
+}
+
+function selectRoadSegment() {
+  if (!manualRoadSegments.length) return;
+
+  const idx = Number(segmentSelect.value);
+
+  if (!Number.isFinite(idx) || idx < 0 || idx >= manualRoadSegments.length) return;
+
+  currentDrawSegment = idx;
+  renderManualRoad();
+  setRoutingStatus(`selected manual road segment ${idx + 1}`);
+}
+
+function deleteSelectedSegment() {
+  if (!manualRoadSegments.length) return;
+
+  const idx = Number(segmentSelect.value);
+
+  if (!Number.isFinite(idx) || idx < 0 || idx >= manualRoadSegments.length) return;
+
+  const ok = confirm(`Delete Segment ${idx + 1}? This will remove ${manualRoadSegments[idx].length} road points.`);
+
+  if (!ok) return;
+
+  manualRoadSegments.splice(idx, 1);
+
+  if (manualRoadSegments.length === 0) {
+    currentDrawSegment = 0;
+  } else {
+    currentDrawSegment = Math.min(idx, manualRoadSegments.length - 1);
+  }
+
+  manualRoadGraph = null;
+  renderManualRoad();
+  render();
+  setRoutingStatus("selected manual road segment deleted. Click Save to keep this change.");
+  updateSummary();
+}
+
+function updateRoadEditorStatus() {
+  const pts = manualRoadSegments.reduce((s,seg) => s + seg.length, 0);
+
+  roadEditorStatus.textContent =
+    `Road editor: ${drawingRoad ? "drawing enabled" : "idle"} | segments: ${manualRoadSegments.length} | points: ${pts}`;
+}
+
+function startNewSegment() {
+  if (!manualRoadSegments.length || manualRoadSegments[manualRoadSegments.length-1].length > 0) {
+    manualRoadSegments.push([]);
+  }
+
+  currentDrawSegment = manualRoadSegments.length - 1;
+  renderManualRoad();
+}
+
+function saveManualRoad() {
+  localStorage.setItem(ROAD_STORAGE_KEY, JSON.stringify(manualRoadSegments));
+  manualRoadGraph = null;
+  renderManualRoad();
+  setRoutingStatus("manual road saved in browser");
+  updateSummary();
+}
+
+function loadManualRoad() {
+  const raw = localStorage.getItem(ROAD_STORAGE_KEY);
+
+  if (!raw) {
+    manualRoadSegments = [];
+    renderManualRoad();
+    setRoutingStatus("no saved manual road found");
+    return;
+  }
+
+  try {
+    manualRoadSegments = JSON.parse(raw);
+
+    if (!Array.isArray(manualRoadSegments)) manualRoadSegments = [];
+
+    manualRoadGraph = null;
+    renderManualRoad();
+    setRoutingStatus(`loaded saved manual road with ${manualRoadSegments.length} segment(s)`);
+  } catch (e) {
+    manualRoadSegments = [];
+    setRoutingStatus("saved road could not be read");
+  }
+}
+
+function clearManualRoad() {
+  if (!confirm("Clear the manually drawn port road?")) return;
+
+  manualRoadSegments = [];
+  manualRoadGraph = null;
+  localStorage.removeItem(ROAD_STORAGE_KEY);
+  renderManualRoad();
+  setRoutingStatus("manual road cleared");
+  render();
+}
+
+function undoRoadPoint() {
+  if (!manualRoadSegments.length) return;
+
+  const seg =
+    manualRoadSegments[currentDrawSegment] ||
+    manualRoadSegments[manualRoadSegments.length-1];
+
+  if (seg && seg.length) {
+    seg.pop();
+  } else if (manualRoadSegments.length > 1) {
+    manualRoadSegments.pop();
+    currentDrawSegment = manualRoadSegments.length - 1;
+  }
+
+  manualRoadGraph = null;
+  renderManualRoad();
+  render();
+}
+
+function exportManualRoad() {
+  const blob = new Blob(
+    [JSON.stringify(manualRoadSegments, null, 2)],
+    {type:"application/json"}
+  );
+
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "port_manual_road.json";
+  a.click();
+
+  URL.revokeObjectURL(a.href);
+}
+
+function importManualRoad(file) {
+  const reader = new FileReader();
+
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+
+      if (!Array.isArray(data)) {
+        throw new Error("Invalid road JSON");
+      }
+
+      manualRoadSegments = data;
+      manualRoadGraph = null;
+      saveManualRoad();
+      render();
+    } catch (err) {
+      alert("Could not import road JSON.");
+    }
+  };
+
+  reader.readAsText(file);
+}
+
+
+/* ============================================================
+   WAREHOUSE ZONE EDITOR
+============================================================ */
+
+function zoneColor(name) {
+  const colors = {
+    W1:"#e41a1c",
+    W2:"#377eb8",
+    W3:"#4daf4a",
+    W4:"#984ea3",
+    W5:"#ff7f00"
+  };
+
+  return colors[name] || "#111111";
+}
+
+function polygonCentroid(points) {
+  if (!points || !points.length) return null;
+
+  const lat = points.reduce((s,p) => s + p.lat, 0) / points.length;
+  const lng = points.reduce((s,p) => s + p.lng, 0) / points.length;
+
+  return [lat, lng];
+}
+
+function renderWarehouseZones() {
+  warehouseZoneLayer.clearLayers();
+
+  WAREHOUSE_ZONE_NAMES.forEach(name => {
+    const pts = warehouseZones[name] || [];
+
+    if (!pts.length) return;
+
+    const latlngs = pts.map(p => [p.lat, p.lng]);
+    const color = zoneColor(name);
+
+    if (pts.length >= 3) {
+      L.polygon(latlngs, {
+        color:color,
+        weight:2,
+        opacity:0.95,
+        fillColor:color,
+        fillOpacity:0.18
+      }).addTo(warehouseZoneLayer);
+    } else {
+      L.polyline(latlngs, {
+        color:color,
+        weight:3,
+        opacity:0.95
+      }).addTo(warehouseZoneLayer);
+    }
+
+    pts.forEach(p => {
+      L.circleMarker([p.lat,p.lng], {
+        radius:4,
+        color:color,
+        fillColor:color,
+        fillOpacity:1,
+        weight:1
+      }).addTo(warehouseZoneLayer);
+    });
+
+    const center = polygonCentroid(pts);
+
+    if (center) {
+      L.marker(center, {
+        icon:L.divIcon({
+          className:"zone-label",
+          html:name,
+          iconSize:null
+        })
+      }).addTo(warehouseZoneLayer);
+    }
+  });
+
+  updateZoneEditorStatus();
+}
+
+function updateZoneEditorStatus() {
+  if (!zoneEditorStatus) return;
+
+  const counts = WAREHOUSE_ZONE_NAMES
+    .map(name => `${name}:${(warehouseZones[name] || []).length}`)
+    .join(" | ");
+
+  zoneEditorStatus.textContent =
+    `Zone editor: ${drawingZone ? "drawing enabled" : "idle"} | selected: ${selectedZoneName} | ${counts}`;
+}
+
+function saveWarehouseZones() {
+  localStorage.setItem(WAREHOUSE_ZONE_STORAGE_KEY, JSON.stringify(warehouseZones));
+  renderWarehouseZones();
+  updateZoneEditorStatus();
+  renderAnalytics();
+}
+
+function loadWarehouseZones() {
+  const raw = localStorage.getItem(WAREHOUSE_ZONE_STORAGE_KEY);
+
+  if (!raw) {
+    renderWarehouseZones();
+    return;
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+
+    WAREHOUSE_ZONE_NAMES.forEach(name => {
+      warehouseZones[name] = Array.isArray(parsed[name]) ? parsed[name] : [];
+    });
+
+    renderWarehouseZones();
+  } catch (e) {
+    warehouseZones = {W1:[], W2:[], W3:[], W4:[], W5:[]};
+    renderWarehouseZones();
+  }
+}
+
+function clearSelectedWarehouseZone() {
+  const name = selectedZoneName;
+
+  if (!confirm(`Clear warehouse zone ${name}?`)) return;
+
+  warehouseZones[name] = [];
+  renderWarehouseZones();
+  renderAnalytics();
+}
+
+function undoWarehouseZonePoint() {
+  const pts = warehouseZones[selectedZoneName] || [];
+
+  if (!pts.length) return;
+
+  pts.pop();
+  warehouseZones[selectedZoneName] = pts;
+
+  renderWarehouseZones();
+  renderAnalytics();
+}
+
+function exportWarehouseZones() {
+  const blob = new Blob(
+    [JSON.stringify(warehouseZones, null, 2)],
+    {type:"application/json"}
+  );
+
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "warehouse_zones.json";
+  a.click();
+
+  URL.revokeObjectURL(a.href);
+}
+
+function importWarehouseZones(file) {
+  const reader = new FileReader();
+
+  reader.onload = e => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+
+      WAREHOUSE_ZONE_NAMES.forEach(name => {
+        warehouseZones[name] = Array.isArray(parsed[name]) ? parsed[name] : [];
+      });
+
+      saveWarehouseZones();
+      renderAnalytics();
+    } catch (err) {
+      alert("Could not import warehouse zones JSON.");
+    }
+  };
+
+  reader.readAsText(file);
+}
+
+
+/* ============================================================
+   COMBINED ROAD + WAREHOUSE ZONE BACKUP
+============================================================ */
+
+function exportCombinedConfig() {
+  const payload = {
+    type: "port-road-and-warehouse-zones",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    manualRoadSegments: manualRoadSegments,
+    warehouseZones: warehouseZones
+  };
+
+  const blob = new Blob(
+    [JSON.stringify(payload, null, 2)],
+    {type:"application/json"}
+  );
+
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "port_road_and_warehouse_zones.json";
+  a.click();
+
+  URL.revokeObjectURL(a.href);
+
+  if (combinedConfigStatus) {
+    combinedConfigStatus.textContent =
+      `Exported combined road + zones JSON | road segments: ${manualRoadSegments.length}`;
+  }
+}
+
+function importCombinedConfig(file) {
+  const reader = new FileReader();
+
+  reader.onload = e => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+
+      const importedRoad =
+        parsed.manualRoadSegments ||
+        parsed.roadSegments ||
+        parsed.manualRoad ||
+        parsed.portRoad;
+
+      const importedZones =
+        parsed.warehouseZones ||
+        parsed.zones;
+
+      if (!Array.isArray(importedRoad)) {
+        throw new Error("Combined JSON does not contain a valid manualRoadSegments array.");
+      }
+
+      if (!importedZones || typeof importedZones !== "object") {
+        throw new Error("Combined JSON does not contain a valid warehouseZones object.");
+      }
+
+      manualRoadSegments = importedRoad;
+
+      WAREHOUSE_ZONE_NAMES.forEach(name => {
+        warehouseZones[name] = Array.isArray(importedZones[name])
+          ? importedZones[name]
+          : [];
+      });
+
+      manualRoadGraph = null;
+
+      localStorage.setItem(ROAD_STORAGE_KEY, JSON.stringify(manualRoadSegments));
+      localStorage.setItem(WAREHOUSE_ZONE_STORAGE_KEY, JSON.stringify(warehouseZones));
+
+      renderManualRoad();
+      renderWarehouseZones();
+      updateSummary();
+      renderAnalytics();
+      render();
+
+      const zoneCounts = WAREHOUSE_ZONE_NAMES
+        .map(name => `${name}:${warehouseZones[name].length}`)
+        .join(" | ");
+
+      setRoutingStatus(
+        `combined road + zones imported; road segments: ${manualRoadSegments.length}`
+      );
+
+      if (combinedConfigStatus) {
+        combinedConfigStatus.textContent =
+          `Imported combined setup | road segments: ${manualRoadSegments.length} | ${zoneCounts}`;
+      }
+
+    } catch (err) {
+      console.error(err);
+      alert(
+        "Could not import combined road + zones JSON. Make sure this file was exported using the combined backup option."
+      );
+
+      if (combinedConfigStatus) {
+        combinedConfigStatus.textContent = "Combined import failed.";
+      }
+    }
+  };
+
+  reader.readAsText(file);
+}
+
+function pointInPolygon(lat, lng, polygon) {
+  if (!polygon || polygon.length < 3) return false;
+
+  let inside = false;
+
+  for (let i=0, j=polygon.length-1; i<polygon.length; j=i++) {
+    const xi = polygon[i].lng;
+    const yi = polygon[i].lat;
+    const xj = polygon[j].lng;
+    const yj = polygon[j].lat;
+
+    const intersect =
+      ((yi > lat) !== (yj > lat)) &&
+      (lng < (xj - xi) * (lat - yi) / ((yj - yi) || 1e-12) + xi);
+
+    if (intersect) inside = !inside;
+  }
+
+  return inside;
+}
+
+function zoneForPoint(lat, lng) {
+  for (const name of WAREHOUSE_ZONE_NAMES) {
+    if (pointInPolygon(lat, lng, warehouseZones[name])) {
+      return name;
+    }
+  }
+
+  return null;
+}
+
+/* ============================================================
+   MANUAL ROAD GRAPH
+============================================================ */
+
+function buildManualGraph() {
+  if (manualRoadGraph) return manualRoadGraph;
+
+  const nodes = [];
+  const edges = new Map();
+
+  function addNode(p) {
+    for (let i=0; i<nodes.length; i++) {
+      if (distanceMeters(nodes[i], p) < 6) return i;
+    }
+
+    const idx = nodes.length;
+    nodes.push(p);
+    edges.set(idx, []);
+    return idx;
+  }
+
+  function addEdge(a, b, w=null) {
+    if (a === b) return;
+
+    const weight = w ?? distanceMeters(nodes[a], nodes[b]);
+
+    const listA = edges.get(a) || [];
+    const listB = edges.get(b) || [];
+
+    if (!listA.some(([v]) => v === b)) listA.push([b, weight]);
+    if (!listB.some(([v]) => v === a)) listB.push([a, weight]);
+
+    edges.set(a, listA);
+    edges.set(b, listB);
+  }
+
+  manualRoadSegments.forEach(seg => {
+    for (let i=0; i<seg.length-1; i++) {
+      const a = [seg[i].lat, seg[i].lng];
+      const b = [seg[i+1].lat, seg[i+1].lng];
+
+      const d = distanceMeters(a, b);
+      const pieces = Math.max(1, Math.ceil(d / ROAD_GRAPH_NODE_SPACING_METERS));
+
+      let prevIdx = addNode(a);
+
+      for (let k=1; k<=pieces; k++) {
+        const t = k / pieces;
+
+        const p = [
+          a[0] + (b[0] - a[0]) * t,
+          a[1] + (b[1] - a[1]) * t
+        ];
+
+        const idx = addNode(p);
+        addEdge(prevIdx, idx, distanceMeters(nodes[prevIdx], nodes[idx]));
+        prevIdx = idx;
+      }
+    }
+  });
+
+  // Auto-connect road nodes that almost touch.
+  // This helps when branches were drawn as separate segments.
+  for (let i=0; i<nodes.length; i++) {
+    for (let j=i+1; j<nodes.length; j++) {
+      const d = distanceMeters(nodes[i], nodes[j]);
+
+      if (d <= ROAD_CONNECT_THRESHOLD_METERS) {
+        addEdge(i, j, d);
+      }
+    }
+  }
+
+  manualRoadGraph = {nodes, edges};
+  return manualRoadGraph;
+}
+
+function nearestGraphNode(p, graph) {
+  if (!graph.nodes.length) return null;
+
+  let best = {idx:0, dist:Infinity};
+
+  graph.nodes.forEach((n,i) => {
+    const d = distanceMeters(p,n);
+
+    if (d < best.dist) {
+      best = {idx:i, dist:d};
+    }
+  });
+
+  return best;
+}
+
+function dijkstra(graph, startIdx, endIdx) {
+  const n = graph.nodes.length;
+  const dist = new Array(n).fill(Infinity);
+  const prev = new Array(n).fill(-1);
+  const used = new Array(n).fill(false);
+
+  dist[startIdx] = 0;
+
+  for (let k=0; k<n; k++) {
+    let u = -1;
+    let best = Infinity;
+
+    for (let i=0; i<n; i++) {
+      if (!used[i] && dist[i] < best) {
+        best = dist[i];
+        u = i;
+      }
+    }
+
+    if (u === -1 || u === endIdx) break;
+
+    used[u] = true;
+
+    for (const [v,w] of graph.edges.get(u) || []) {
+      const nd = dist[u] + w;
+
+      if (nd < dist[v]) {
+        dist[v] = nd;
+        prev[v] = u;
+      }
+    }
+  }
+
+  if (!Number.isFinite(dist[endIdx])) return null;
+
+  const path = [];
+  let cur = endIdx;
+
+  while (cur !== -1) {
+    path.push(graph.nodes[cur]);
+
+    if (cur === startIdx) break;
+
+    cur = prev[cur];
+  }
+
+  return path.reverse();
+}
+
+function removeSequentialDuplicates(points) {
+  const out = [];
+
+  for (const p of points) {
+    if (!out.length || distanceMeters(out[out.length-1], p) > 2) {
+      out.push(p);
+    }
+  }
+
+  return out;
+}
+
+function densifyRoute(route, spacing=7) {
+  if (route.length < 2) return route;
+
+  const out = [route[0]];
+
+  for (let i=0; i<route.length-1; i++) {
+    const a = route[i];
+    const b = route[i+1];
+    const d = distanceMeters(a,b);
+    const n = Math.max(1, Math.ceil(d/spacing));
+
+    for (let j=1; j<=n; j++) {
+      const t = j/n;
+
+      out.push([
+        a[0] + (b[0]-a[0]) * t,
+        a[1] + (b[1]-a[1]) * t
+      ]);
+    }
+  }
+
+  return out;
+}
+
+function buildManualRoadRoute(stepPoints) {
+  const graph = buildManualGraph();
+
+  if (!graph.nodes.length || graph.nodes.length < 2) return null;
+
+  const raw = directPath(stepPoints);
+
+  if (raw.length < 2) return null;
+
+  const targetNodes = [];
+  let lastValidNode = null;
+  let skippedStops = 0;
+  let failedSegments = 0;
+
+  for (let i=0; i<raw.length; i++) {
+    const isEndpoint = (i === 0 || i === raw.length - 1);
+
+    const q = isEndpoint
+      ? [ENTRY_GATE.lat, ENTRY_GATE.lng]
+      : raw[i];
+
+    const snap = nearestGraphNode(q, graph);
+
+    if (!snap || snap.dist > MAX_MANUAL_SNAP_DISTANCE_METERS) {
+      console.warn(
+        "Manual road stop skipped because snap is too far:",
+        {
+          pointIndex:i,
+          point:q,
+          snapDistanceMeters:snap ? snap.dist : null,
+          phase:stepPoints[i]?.phase,
+          source:stepPoints[i]?.source,
+          time:stepPoints[i]?.time
+        }
+      );
+
+      // Entry and exit must be routeable. If they are not, the road network is incomplete.
+      if (isEndpoint || lastValidNode === null) {
+        return null;
+      }
+
+      // For a bad interior RTLS point, keep the truck at the last routeable node
+      // instead of killing the entire trail.
+      targetNodes.push(lastValidNode);
+      skippedStops++;
+      continue;
+    }
+
+    targetNodes.push(snap.idx);
+    lastValidNode = snap.idx;
+  }
+
+  if (targetNodes.length < 2) return null;
+
+  let route = [];
+  let stopFractions = [];
+  let currentLength = 0;
+
+  for (let i=0; i<targetNodes.length; i++) {
+    if (i === 0) {
+      route.push(graph.nodes[targetNodes[i]]);
+      stopFractions.push(0);
+      continue;
+    }
+
+    // If two consecutive steps snap to the same road node,
+    // keep the truck there for this step.
+    if (targetNodes[i] === targetNodes[i-1]) {
+      stopFractions.push(currentLength);
+      continue;
+    }
+
+    const seg = dijkstra(graph, targetNodes[i-1], targetNodes[i]);
+
+    if (!seg || !seg.length) {
+      console.warn(
+        "Manual road routing failed between nodes. Step will be held at previous route position:",
+        {
+          fromIndex:targetNodes[i-1],
+          toIndex:targetNodes[i],
+          fromNode:graph.nodes[targetNodes[i-1]],
+          toNode:graph.nodes[targetNodes[i]],
+          phase:stepPoints[i]?.phase,
+          source:stepPoints[i]?.source,
+          time:stepPoints[i]?.time
+        }
+      );
+
+      // Do not create a fake straight line.
+      // Keep current step at the previous known route position.
+      stopFractions.push(currentLength);
+      failedSegments++;
+      continue;
+    }
+
+    if (route.length) route.push(...seg.slice(1));
+    else route.push(...seg);
+
+    route = removeSequentialDuplicates(route);
+    currentLength = routeLength(route);
+    stopFractions.push(currentLength);
+  }
+
+  route = densifyRoute(removeSequentialDuplicates(route), 7);
+
+  const total = routeLength(route);
+
+  if (!total || route.length < 2) return null;
+
+  stopFractions = stopFractions.map(x =>
+    Math.max(0, Math.min(1, x / total))
+  );
+
+  if (skippedStops || failedSegments) {
+    console.warn(
+      "Manual road route built with warnings:",
+      {
+        skippedStops,
+        failedSegments,
+        routePoints:route.length
+      }
+    );
+  }
+
+  return {
+    route,
+    stopFractions,
+    skippedStops,
+    failedSegments
+  };
+}
+
+/* ============================================================
+   ROUTE UPDATE
+============================================================ */
+
+function setRoutingStatus(msg) {
+  if (routingStatus) routingStatus.textContent = `Path status: ${msg}`;
+}
+
+function updatePathLines(pts) {
+  let routePack = null;
+
+  if (routeMode.value === "manual") {
+    routePack = buildManualRoadRoute(pts);
+
+    if (routePack && routePack.route && routePack.route.length >= 2) {
+      latestRoute = routePack.route;
+      latestStopFractions = routePack.stopFractions;
+
+      let msg = "using saved manual port road";
+
+      if (routePack.skippedStops || routePack.failedSegments) {
+        msg += `; ${routePack.skippedStops || 0} RTLS stop(s) skipped, ${routePack.failedSegments || 0} road segment(s) failed`;
+      }
+
+      setRoutingStatus(msg);
+    } else {
+      latestRoute = [];
+      latestStopFractions = pts.map((_,i) =>
+        pts.length <= 1 ? 1 : i/(pts.length-1)
+      );
+
+      setRoutingStatus(
+        "manual road selected, but this trip cannot be routed on the saved road. Add connector road segments or import a connected road JSON."
+      );
+    }
+  } else {
+    latestRoute = directPath(pts);
+    latestStopFractions = pts.map((_,i) =>
+      pts.length <= 1 ? 1 : i/(pts.length-1)
+    );
+    setRoutingStatus("direct GPS point connection selected");
+  }
+
+  roadOutline.setLatLngs(latestRoute);
+  fullLine.setLatLngs(latestRoute);
+
+  const frac =
+    latestStopFractions[currentStepIndex] ??
+    (pts.length <= 1 ? 1 : currentStepIndex/(pts.length-1));
+
+  activeLine.setLatLngs(
+    showTrail && latestRoute.length ? subRouteToFraction(latestRoute, frac) : []
+  );
+}
+
+/* ============================================================
+   STATUS / PANEL
+============================================================ */
+
+function statusLabelForStep(p) {
+  if (!p) return "Idle";
+
+  if (p.phase === "ENTRY_STARTED" || p.phase === "ENTRY_COMPLETED") return "Entry";
+  if (p.phase === "EXIT_STARTED" || p.phase === "EXIT_COMPLETED") return "Exit";
+
+  return p.source ? p.source.toUpperCase() : p.phase;
+}
+
+function updateStatusDisplay(p, color) {
+  const label = statusLabelForStep(p);
+
+  const badge = `<span class="status-badge" style="background:${color};">${label}</span>`;
+
+  if (mapStatusBadgeEl) {
+    mapStatusBadgeEl.innerHTML = `Status: ${badge}`;
+  }
+
+  return badge;
+}
+
+function renderDwell(t) {
+  if (!t || !t.dwell) {
+    dwellInfo.innerHTML =
+      `<div class="small">Port Dwell Time unavailable: no same-day exit completion was found for this placard.</div>`;
+    return;
+  }
+
+  dwellInfo.innerHTML = `
+    <div class="dwell-box port-dwell">
+      <div class="dwell-title">Port Dwell Time: ${t.dwell.portDuration}</div>
+      <div class="dwell-range">Range: ${t.dwell.portRange}</div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   DWELL ANALYTICS
+============================================================ */
+
+function getPortDwellMs(t) {
+  if (!t || !t.entry || !t.exit) return null;
+
+  const ms = t.exit.completionTimeObj - t.entry.completionTimeObj;
+
+  if (!Number.isFinite(ms) || ms < 0) return null;
+
+  return ms;
+}
+
+function mean(values) {
+  if (!values.length) return 0;
+  return values.reduce((a,b) => a + b, 0) / values.length;
+}
+
+function median(values) {
+  if (!values.length) return 0;
+
+  const sorted = [...values].sort((a,b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+
+  if (sorted.length % 2) return sorted[mid];
+
+  return (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function percentile(values, p) {
+  if (!values.length) return 0;
+
+  const sorted = [...values].sort((a,b) => a - b);
+  const idx = Math.ceil((p / 100) * sorted.length) - 1;
+
+  return sorted[Math.max(0, Math.min(sorted.length - 1, idx))];
+}
+
+function formatHours(value) {
+  if (!Number.isFinite(value)) return "0h";
+  return `${value.toFixed(2)}h`;
+}
+
+function getDwellRecords() {
+  return trips
+    .map(t => {
+      const dwellMs = getPortDwellMs(t);
+
+      if (dwellMs === null) return null;
+
+      return {
+        trip:t,
+        placard:t.placard,
+        date:t.date,
+        entryTime:t.entry.startTime,
+        entryCompletion:t.entry.completionTime,
+        exitCompletion:t.exit.completionTime,
+        entryHour:t.entry.startTimeObj.getHours(),
+        dwellMs:dwellMs,
+        dwellHours:dwellMs / 3600000,
+        rtlsCount:t.rtlsCount || 0
+      };
+    })
+    .filter(Boolean);
+}
+
+function getLoc0StepsForTrip(t) {
+  if (!t || !t.steps) return [];
+
+  return t.steps
+    .filter(s => s.phase === "INSIDE_PORT_RTLS" && s.source === "loc0")
+    .filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lng) && s.timeObj)
+    .sort((a,b) => a.timeObj - b.timeObj);
+}
+
+function getWarehouseTimeForTrip(t) {
+  const loc0Steps = getLoc0StepsForTrip(t);
+
+  const zoneMs = {};
+  WAREHOUSE_ZONE_NAMES.forEach(name => zoneMs[name] = 0);
+
+  const maxGapMs = MAX_ZONE_GAP_MINUTES * 60 * 1000;
+
+  for (let i=0; i<loc0Steps.length; i++) {
+    const current = loc0Steps[i];
+    const next = loc0Steps[i+1];
+
+    const zone = zoneForPoint(current.lat, current.lng);
+
+    if (!zone) continue;
+
+    if (!next) continue;
+
+    let dt = next.timeObj - current.timeObj;
+
+    if (!Number.isFinite(dt) || dt <= 0) continue;
+
+    dt = Math.min(dt, maxGapMs);
+
+    zoneMs[zone] += dt;
+  }
+
+  return zoneMs;
+}
+
+function getWarehouseAnalyticsRecords() {
+  const records = [];
+
+  trips.forEach(t => {
+    if (!t.exit) return;
+
+    const zoneMs = getWarehouseTimeForTrip(t);
+
+    WAREHOUSE_ZONE_NAMES.forEach(zone => {
+      const ms = zoneMs[zone] || 0;
+
+      if (ms <= 0) return;
+
+      records.push({
+        trip:t,
+        placard:t.placard,
+        date:t.date,
+        zone:zone,
+        ms:ms,
+        minutes:ms / 60000,
+        hours:ms / 3600000,
+        rtlsCount:t.rtlsCount || 0
+      });
+    });
+  });
+
+  return records;
+}
+
+function getCurrentTripWarehouseSummary(t) {
+  if (!t) return "";
+
+  const zoneMs = getWarehouseTimeForTrip(t);
+
+  const parts = WAREHOUSE_ZONE_NAMES.map(zone => {
+    return `${zone}: ${formatDuration(zoneMs[zone] || 0)}`;
+  });
+
+  return parts.join(" | ");
+}
+
+function groupRecords(records, keyFn) {
+  const map = new Map();
+
+  records.forEach(r => {
+    const key = keyFn(r);
+
+    if (!map.has(key)) map.set(key, []);
+
+    map.get(key).push(r);
+  });
+
+  return map;
+}
+
+function destroyAnalyticsCharts() {
+  if (dwellTrendChart) {
+    dwellTrendChart.destroy();
+    dwellTrendChart = null;
+  }
+
+  if (dwellHistogramChart) {
+    dwellHistogramChart.destroy();
+    dwellHistogramChart = null;
+  }
+
+  if (topDwellChart) {
+    topDwellChart.destroy();
+    topDwellChart = null;
+  }
+
+  if (hourlyDwellChart) {
+    hourlyDwellChart.destroy();
+    hourlyDwellChart = null;
+  }
+}
+
+function renderAnalyticsSummary(records) {
+  if (!analyticsSummary) return;
+
+  const values = records.map(r => r.dwellHours);
+  const unmatched = trips.filter(t => !t.exit).length;
+
+  if (!records.length) {
+    analyticsSummary.innerHTML =
+      `<span class="pill">0 trips with valid dwell</span>` +
+      `<span class="pill">${unmatched} unmatched exits</span>`;
+    return;
+  }
+
+  const maxRecord = records.reduce((a,b) => b.dwellHours > a.dwellHours ? b : a, records[0]);
+
+  analyticsSummary.innerHTML =
+    `<span class="pill">Valid dwell trips: ${records.length}</span>` +
+    `<span class="pill">Avg: ${formatHours(mean(values))}</span>` +
+    `<span class="pill">Median: ${formatHours(median(values))}</span>` +
+    `<span class="pill">P90: ${formatHours(percentile(values, 90))}</span>` +
+    `<span class="pill">Max: ${formatHours(maxRecord.dwellHours)} (${maxRecord.placard})</span>` +
+    `<span class="pill">${unmatched} unmatched exits</span>`;
+}
+
+function renderDwellTrendChart(records) {
+  const groups = groupRecords(records, r => r.date);
+  const rows = Array.from(groups.entries())
+    .sort((a,b) => a[0].localeCompare(b[0]))
+    .map(([date, recs]) => {
+      const vals = recs.map(r => r.dwellHours);
+
+      return {
+        date,
+        count:recs.length,
+        avg:Number(mean(vals).toFixed(2)),
+        median:Number(median(vals).toFixed(2)),
+        p90:Number(percentile(vals, 90).toFixed(2))
+      };
+    });
+
+  dwellTrendChart = new Chart(dwellTrendCanvas, {
+    type:"line",
+    data:{
+      labels:rows.map(r => r.date),
+      datasets:[
+        {
+          label:"Average dwell",
+          data:rows.map(r => r.avg),
+          tension:0.25
+        },
+        {
+          label:"Median dwell",
+          data:rows.map(r => r.median),
+          tension:0.25
+        },
+        {
+          label:"P90 dwell",
+          data:rows.map(r => r.p90),
+          tension:0.25
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{position:"bottom"},
+        title:{display:true, text:"Daily Port Dwell Time Trend"}
+      },
+      scales:{
+        y:{
+          beginAtZero:true,
+          title:{display:true, text:"Dwell time (hours)"}
+        }
+      }
+    }
+  });
+}
+
+function renderDwellHistogramChart(records) {
+  const bins = [
+    {label:"0–1h", min:0, max:1},
+    {label:"1–2h", min:1, max:2},
+    {label:"2–4h", min:2, max:4},
+    {label:"4–8h", min:4, max:8},
+    {label:"8–12h", min:8, max:12},
+    {label:"12–24h", min:12, max:24},
+    {label:"24h+", min:24, max:Infinity}
+  ];
+
+  const counts = bins.map(bin =>
+    records.filter(r => r.dwellHours >= bin.min && r.dwellHours < bin.max).length
+  );
+
+  dwellHistogramChart = new Chart(dwellHistogramCanvas, {
+    type:"bar",
+    data:{
+      labels:bins.map(b => b.label),
+      datasets:[
+        {
+          label:"Trip count",
+          data:counts
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        title:{display:true, text:"Port Dwell Time Distribution"}
+      },
+      scales:{
+        y:{
+          beginAtZero:true,
+          title:{display:true, text:"Number of trips"}
+        }
+      }
+    }
+  });
+}
+
+function renderTopDwellChart(records) {
+  const top = [...records]
+    .sort((a,b) => b.dwellHours - a.dwellHours)
+    .slice(0,10)
+    .reverse();
+
+  topDwellChart = new Chart(topDwellCanvas, {
+    type:"bar",
+    data:{
+      labels:top.map(r => `${r.placard} | ${r.date}`),
+      datasets:[
+        {
+          label:"Dwell hours",
+          data:top.map(r => Number(r.dwellHours.toFixed(2)))
+        }
+      ]
+    },
+    options:{
+      indexAxis:"y",
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        title:{display:true, text:"Top 10 Longest Port Dwell Trips"}
+      },
+      scales:{
+        x:{
+          beginAtZero:true,
+          title:{display:true, text:"Dwell time (hours)"}
+        }
+      }
+    }
+  });
+}
+
+function renderHourlyDwellChart(records) {
+  const groups = groupRecords(records, r => r.entryHour);
+  const rows = Array.from(groups.entries())
+    .sort((a,b) => Number(a[0]) - Number(b[0]))
+    .map(([hour, recs]) => {
+      const vals = recs.map(r => r.dwellHours);
+
+      return {
+        hour:`${String(hour).padStart(2,"0")}:00`,
+        avg:Number(mean(vals).toFixed(2)),
+        count:recs.length
+      };
+    });
+
+  hourlyDwellChart = new Chart(hourlyDwellCanvas, {
+    type:"bar",
+    data:{
+      labels:rows.map(r => r.hour),
+      datasets:[
+        {
+          label:"Average dwell",
+          data:rows.map(r => r.avg)
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        title:{display:true, text:"Average Port Dwell Time by Entry Hour"}
+      },
+      scales:{
+        y:{
+          beginAtZero:true,
+          title:{display:true, text:"Dwell time (hours)"}
+        }
+      }
+    }
+  });
+}
+
+function destroyWarehouseCharts() {
+  if (warehouseAvgChart) {
+    warehouseAvgChart.destroy();
+    warehouseAvgChart = null;
+  }
+
+  if (warehouseTotalChart) {
+    warehouseTotalChart.destroy();
+    warehouseTotalChart = null;
+  }
+
+  if (warehouseVisitChart) {
+    warehouseVisitChart.destroy();
+    warehouseVisitChart = null;
+  }
+
+  if (warehouseTopDelayChart) {
+    warehouseTopDelayChart.destroy();
+    warehouseTopDelayChart = null;
+  }
+}
+
+function renderWarehouseAnalyticsSummary(records) {
+  if (!warehouseAnalyticsSummary) return;
+
+  if (!records.length) {
+    warehouseAnalyticsSummary.innerHTML =
+      `<span class="pill">No warehouse zone time detected</span>`;
+    return;
+  }
+
+  const byZone = groupRecords(records, r => r.zone);
+
+  const summary = WAREHOUSE_ZONE_NAMES.map(zone => {
+    const recs = byZone.get(zone) || [];
+    const totalMin = recs.reduce((s,r) => s + r.minutes, 0);
+    return `<span class="pill">${zone}: ${totalMin.toFixed(1)} min total</span>`;
+  }).join("");
+
+  warehouseAnalyticsSummary.innerHTML = summary;
+}
+
+function renderWarehouseAvgChart(records) {
+  const byZone = groupRecords(records, r => r.zone);
+
+  const rows = WAREHOUSE_ZONE_NAMES.map(zone => {
+    const recs = byZone.get(zone) || [];
+    const vals = recs.map(r => r.minutes);
+
+    return {
+      zone,
+      avg: vals.length ? Number(mean(vals).toFixed(1)) : 0
+    };
+  });
+
+  warehouseAvgChart = new Chart(warehouseAvgCanvas, {
+    type:"bar",
+    data:{
+      labels:rows.map(r => r.zone),
+      datasets:[{
+        label:"Average minutes",
+        data:rows.map(r => r.avg)
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        title:{display:true, text:"Average Time Spent by Warehouse Zone"}
+      },
+      scales:{
+        y:{
+          beginAtZero:true,
+          title:{display:true, text:"Minutes"}
+        }
+      }
+    }
+  });
+}
+
+function renderWarehouseTotalChart(records) {
+  const byZone = groupRecords(records, r => r.zone);
+
+  const rows = WAREHOUSE_ZONE_NAMES.map(zone => {
+    const recs = byZone.get(zone) || [];
+    const total = recs.reduce((s,r) => s + r.minutes, 0);
+
+    return {
+      zone,
+      total:Number(total.toFixed(1))
+    };
+  });
+
+  warehouseTotalChart = new Chart(warehouseTotalCanvas, {
+    type:"bar",
+    data:{
+      labels:rows.map(r => r.zone),
+      datasets:[{
+        label:"Total minutes",
+        data:rows.map(r => r.total)
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        title:{display:true, text:"Total Truck Time by Warehouse Zone"}
+      },
+      scales:{
+        y:{
+          beginAtZero:true,
+          title:{display:true, text:"Minutes"}
+        }
+      }
+    }
+  });
+}
+
+function renderWarehouseVisitChart(records) {
+  const tripZoneKeys = new Set();
+
+  records.forEach(r => {
+    tripZoneKeys.add(`${r.trip.id}|${r.zone}`);
+  });
+
+  const counts = {};
+  WAREHOUSE_ZONE_NAMES.forEach(zone => counts[zone] = 0);
+
+  tripZoneKeys.forEach(key => {
+    const zone = key.split("|").pop();
+    if (counts[zone] !== undefined) counts[zone]++;
+  });
+
+  warehouseVisitChart = new Chart(warehouseVisitCanvas, {
+    type:"bar",
+    data:{
+      labels:WAREHOUSE_ZONE_NAMES,
+      datasets:[{
+        label:"Trip visits",
+        data:WAREHOUSE_ZONE_NAMES.map(zone => counts[zone])
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        title:{display:true, text:"Trip Visits by Warehouse Zone"}
+      },
+      scales:{
+        y:{
+          beginAtZero:true,
+          title:{display:true, text:"Trips"}
+        }
+      }
+    }
+  });
+}
+
+function renderWarehouseTopDelayChart(records) {
+  const top = [...records]
+    .sort((a,b) => b.minutes - a.minutes)
+    .slice(0,10)
+    .reverse();
+
+  warehouseTopDelayChart = new Chart(warehouseTopDelayCanvas, {
+    type:"bar",
+    data:{
+      labels:top.map(r => `${r.zone} | ${r.placard} | ${r.date}`),
+      datasets:[{
+        label:"Minutes",
+        data:top.map(r => Number(r.minutes.toFixed(1)))
+      }]
+    },
+    options:{
+      indexAxis:"y",
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        title:{display:true, text:"Top 10 Warehouse Zone Delays"}
+      },
+      scales:{
+        x:{
+          beginAtZero:true,
+          title:{display:true, text:"Minutes"}
+        }
+      }
+    }
+  });
+}
+
+function renderWarehouseAnalytics() {
+  destroyWarehouseCharts();
+
+  const records = getWarehouseAnalyticsRecords();
+
+  renderWarehouseAnalyticsSummary(records);
+
+  if (!records.length) return;
+  if (typeof Chart === "undefined") return;
+
+  renderWarehouseAvgChart(records);
+  renderWarehouseTotalChart(records);
+  renderWarehouseVisitChart(records);
+  renderWarehouseTopDelayChart(records);
+}
+
+function renderAnalytics() {
+  if (!analyticsSummary) return;
+
+  destroyAnalyticsCharts();
+  destroyWarehouseCharts();
+
+  const records = getDwellRecords();
+
+  renderAnalyticsSummary(records);
+  renderWarehouseAnalytics();
+
+  if (!records.length) return;
+
+  if (typeof Chart === "undefined") {
+    analyticsSummary.innerHTML +=
+      `<div class="small">Chart.js could not be loaded. Check your internet connection or use a local Chart.js file.</div>`;
+    return;
+  }
+
+  renderDwellTrendChart(records);
+  renderDwellHistogramChart(records);
+  renderTopDwellChart(records);
+  renderHourlyDwellChart(records);
+}
+
+function csvEscape(value) {
+  return `"${String(value ?? "").replace(/"/g, '""')}"`;
+}
+
+function exportDwellAnalyticsCSV() {
+  const records = getDwellRecords();
+
+  if (!records.length) {
+    alert("No valid dwell analytics records to export.");
+    return;
+  }
+
+  const header = [
+    "placard",
+    "date",
+    "entry_time",
+    "entry_completion",
+    "exit_completion",
+    "port_dwell_hours",
+    "port_dwell_duration",
+    "rtls_count"
+  ];
+
+  const rows = records.map(r => [
+    r.placard,
+    r.date,
+    r.entryTime,
+    r.entryCompletion,
+    r.exitCompletion,
+    r.dwellHours.toFixed(4),
+    formatDuration(r.dwellMs),
+    r.rtlsCount
+  ]);
+
+  const csv = [header, ...rows]
+    .map(row => row.map(csvEscape).join(","))
+    .join("\n");
+
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+  const a = document.createElement("a");
+
+  a.href = URL.createObjectURL(blob);
+  a.download = "port_dwell_analytics.csv";
+  a.click();
+
+  URL.revokeObjectURL(a.href);
+}
+
+/* ============================================================
+   RENDER / ANIMATION
+============================================================ */
+
+function fitCurrent() {
+  const pts = currentSteps().map(p => [p.lat,p.lng]);
+
+  if (!pts.length) return;
+
+  if (pts.length === 1) {
+    map.setView(pts[0], 18);
+  } else {
+    map.fitBounds(pts, {padding:[35,35]});
+  }
+}
+
+function render() {
+  if (!trips.length) return;
+
+  const t = currentTrip();
+  const pts = currentSteps();
+
+  if (!pts.length) return;
+
+  currentStepIndex = Math.max(0, Math.min(currentStepIndex, pts.length-1));
+
+  const p = pts[currentStepIndex];
+  const color = sourceColors[p.source] || "#555";
+
+  updatePathLines(pts);
+
+  const frac =
+    latestStopFractions[currentStepIndex] ??
+    (pts.length <= 1 ? 1 : currentStepIndex/(pts.length-1));
+
+  const pos = latestRoute.length >= 2
+    ? positionOnRouteForProgress(latestRoute, frac)
+    : null;
+
+  const angle = latestRoute.length >= 2
+    ? bearingForRouteProgress(latestRoute, frac)
+    : lastTruckBearing;
+
+  marker.setIcon(truckIconTopView(angle));
+  marker.setOpacity(1);
+
+  if (pos) marker.setLatLng([pos[0], pos[1]]);
+  else marker.setLatLng([p.lat,p.lng]);
+
+  marker.bindTooltip(
+    `${t.placard}<br>${p.phase}<br>${p.time}<br>${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}`
+  );
+
+  progress.max = Math.max(0, pts.length-1);
+  progress.value = currentStepIndex;
+  truckSelect.value = currentTripIndex;
+
+  const statusBadge = updateStatusDisplay(p, color);
+
+  tripInfo.innerHTML =
+    `<strong>Trip:</strong> ${currentTripIndex+1}/${trips.length} &nbsp; | &nbsp; <strong>${t.placard}</strong><br>` +
+    `<strong>Status:</strong> ${statusBadge}<br>` +
+    `<strong>Step:</strong> ${currentStepIndex+1}/${pts.length} &nbsp; <span class="phase">${p.phase}</span><br>` +
+    `<strong>Matched exit:</strong> ${t.exit ? t.exit.startTime + " → " + t.exit.completionTime : "not found"}`;
+
+  renderDwell(t);
+
+  const currentWarehouseSummary = getCurrentTripWarehouseSummary(t);
+
+  pointInfo.innerHTML =
+    `<strong>Warehouse zone time:</strong><br>${currentWarehouseSummary}<br><br>` +
+    `<strong>Time:</strong> ${p.time}<br>` +
+    `<strong>Source:</strong> <span style="color:${color};font-weight:bold">${p.source}</span><br>` +
+    `<strong>Lat/Lon:</strong> ${p.lat.toFixed(7)}, ${p.lng.toFixed(7)}<br>` +
+    `<strong>Info:</strong> ${p.info || "N/A"}`;
+}
+
+function switchTrip(idx, reset=true) {
+  if (!trips.length) return;
+
+  if (idx < 0) idx = trips.length-1;
+  if (idx >= trips.length) idx = 0;
+
+  if (!tripHasSteps(idx)) idx = findNextTrip(idx, 1);
+
+  currentTripIndex = idx;
+
+  if (reset) currentStepIndex = 0;
+
+  latestRoute = [];
+  latestStopFractions = [];
+
+  fitCurrent();
+  render();
+  restartTimer();
+}
+
+function step() {
+  const pts = currentSteps();
+
+  if (!pts.length) return;
+
+  if (currentStepIndex < pts.length-1) {
+    currentStepIndex++;
+    render();
+  } else if (animationMode.value === "sequential") {
+    clearInterval(timer);
+    timer = null;
+
+    setTimeout(() => {
+      if (playing) switchTrip(findNextTrip(currentTripIndex,1), true);
+    }, Math.max(400, Number(speed.value)*2));
+  } else {
+    playing = false;
+    playPauseBtn.textContent = "Play";
+    clearInterval(timer);
+    timer = null;
+  }
+}
+
+function restartTimer() {
+  clearInterval(timer);
+  timer = null;
+
+  if (playing) {
+    timer = setInterval(step, Number(speed.value));
+  }
+}
+
+/* ============================================================
+   EVENT LISTENERS
+============================================================ */
+
+buildBtn.addEventListener("click", async () => {
+  if (!rtlsFile.files.length || !entryFile.files[0] || !exitFile.files[0]) {
+    alert("Please select RTLS CSV, Truck Entering Excel, and Truck Exiting Excel.");
+    return;
+  }
+
+  tripInfo.textContent = "Reading files and building trip lifecycle data...";
+  dwellInfo.innerHTML = "";
+  pointInfo.innerHTML = "";
+
+  const rtlsRows = await readAllCSVFiles(rtlsFile.files);
+  const entryRows = await readExcel(entryFile.files[0]);
+  const exitRows = await readExcel(exitFile.files[0]);
+
+  const rtlsMap = processRTLS(rtlsRows);
+  const entries = processEntry(entryRows);
+  const exitsByPlacard = processExit(exitRows);
+
+  allTrips = buildTrips(entries, exitsByPlacard, rtlsMap);
+
+  currentTripIndex = 0;
+  currentStepIndex = 0;
+  playing = false;
+  playPauseBtn.textContent = "Play";
+
+  refreshDateFilter();
+  applyDateFilter();
+
+  if (!allTrips.length) {
+    tripInfo.textContent =
+      "No valid trips found. Check Entry/Exit Placard, Start time, and Completion time columns.";
+  }
+});
+
+map.on("click", e => {
+  if (drawingZone) {
+    if (!warehouseZones[selectedZoneName]) {
+      warehouseZones[selectedZoneName] = [];
+    }
+
+    warehouseZones[selectedZoneName].push({
+      lat:e.latlng.lat,
+      lng:e.latlng.lng
+    });
+
+    renderWarehouseZones();
+    renderAnalytics();
+    return;
+  }
+
+  if (!drawingRoad) return;
+
+  if (!manualRoadSegments.length) startNewSegment();
+
+  manualRoadSegments[currentDrawSegment].push({
+    lat:e.latlng.lat,
+    lng:e.latlng.lng
+  });
+
+  manualRoadGraph = null;
+  renderManualRoad();
+  render();
+});
+
+drawRoadBtn.addEventListener("click", () => {
+  drawingRoad = true;
+  drawingZone = false;
+
+  if (!manualRoadSegments.length) startNewSegment();
+
+  renderManualRoad();
+  renderWarehouseZones();
+  setRoutingStatus("drawing enabled: click map to add road points");
+});
+
+newSegmentBtn.addEventListener("click", () => {
+  startNewSegment();
+  drawingRoad = true;
+  drawingZone = false;
+  renderWarehouseZones();
+  setRoutingStatus("new road segment started");
+});
+
+undoRoadBtn.addEventListener("click", () => {
+  undoRoadPoint();
+});
+
+saveRoadBtn.addEventListener("click", () => {
+  saveManualRoad();
+  render();
+});
+
+clearRoadBtn.addEventListener("click", () => {
+  clearManualRoad();
+});
+
+exportRoadBtn.addEventListener("click", () => {
+  exportManualRoad();
+});
+
+importRoadBtn.addEventListener("click", () => {
+  roadImportFile.click();
+});
+
+roadImportFile.addEventListener("change", e => {
+  if (e.target.files[0]) importManualRoad(e.target.files[0]);
+  e.target.value = "";
+});
+
+selectSegmentBtn.addEventListener("click", () => {
+  selectRoadSegment();
+});
+
+deleteSegmentBtn.addEventListener("click", () => {
+  deleteSelectedSegment();
+});
+
+exportAnalyticsBtn.addEventListener("click", () => {
+  exportDwellAnalyticsCSV();
+});
+
+warehouseZoneSelect.addEventListener("change", () => {
+  selectedZoneName = warehouseZoneSelect.value;
+  renderWarehouseZones();
+});
+
+drawZoneBtn.addEventListener("click", () => {
+  drawingZone = true;
+  drawingRoad = false;
+  selectedZoneName = warehouseZoneSelect.value;
+
+  if (!warehouseZones[selectedZoneName]) {
+    warehouseZones[selectedZoneName] = [];
+  }
+
+  renderWarehouseZones();
+});
+
+finishZoneBtn.addEventListener("click", () => {
+  drawingZone = false;
+  renderWarehouseZones();
+});
+
+undoZonePointBtn.addEventListener("click", () => {
+  undoWarehouseZonePoint();
+});
+
+clearZoneBtn.addEventListener("click", () => {
+  clearSelectedWarehouseZone();
+});
+
+saveZonesBtn.addEventListener("click", () => {
+  saveWarehouseZones();
+});
+
+exportZonesBtn.addEventListener("click", () => {
+  exportWarehouseZones();
+});
+
+importZonesBtn.addEventListener("click", () => {
+  zoneImportFile.click();
+});
+
+zoneImportFile.addEventListener("change", e => {
+  if (e.target.files[0]) importWarehouseZones(e.target.files[0]);
+  e.target.value = "";
+});
+
+if (exportCombinedConfigBtn) {
+  exportCombinedConfigBtn.addEventListener("click", () => {
+    exportCombinedConfig();
+  });
+}
+
+if (importCombinedConfigBtn) {
+  importCombinedConfigBtn.addEventListener("click", () => {
+    combinedConfigImportFile.click();
+  });
+}
+
+if (combinedConfigImportFile) {
+  combinedConfigImportFile.addEventListener("change", e => {
+    if (e.target.files[0]) importCombinedConfig(e.target.files[0]);
+    e.target.value = "";
+  });
+}
+
+dateFilter.addEventListener("change", () => {
+  dateFrom.value = "";
+  dateTo.value = "";
+  currentTripIndex = 0;
+  latestRoute = [];
+  latestStopFractions = [];
+  applyDateFilter();
+  restartTimer();
+});
+
+applyDateRangeBtn.addEventListener("click", () => {
+  if (dateFrom.value && dateTo.value && dateFrom.value > dateTo.value) {
+    alert("Date From cannot be later than Date To.");
+    return;
+  }
+
+  dateFilter.value = "all";
+  currentTripIndex = 0;
+  latestRoute = [];
+  latestStopFractions = [];
+  applyDateFilter();
+  restartTimer();
+});
+
+clearDateRangeBtn.addEventListener("click", () => {
+  dateFrom.value = "";
+  dateTo.value = "";
+  dateFilter.value = "all";
+  currentTripIndex = 0;
+  latestRoute = [];
+  latestStopFractions = [];
+  applyDateFilter();
+  restartTimer();
+});
+
+sourceMode.addEventListener("change", () => {
+  currentStepIndex = 0;
+  latestRoute = [];
+  latestStopFractions = [];
+  fitCurrent();
+  render();
+  restartTimer();
+  updateSummary();
+});
+
+routeMode.addEventListener("change", () => {
+  latestRoute = [];
+  latestStopFractions = [];
+  render();
+});
+
+animationMode.addEventListener("change", () => {
+  currentStepIndex = 0;
+  render();
+  restartTimer();
+});
+
+truckSelect.addEventListener("change", e => {
+  switchTrip(Number(e.target.value), true);
+});
+
+progress.addEventListener("input", e => {
+  currentStepIndex = Number(e.target.value);
+  render();
+});
+
+speed.addEventListener("input", () => {
+  speedValue.textContent = speed.value;
+  restartTimer();
+});
+
+playPauseBtn.addEventListener("click", () => {
+  playing = !playing;
+  playPauseBtn.textContent = playing ? "Pause" : "Play";
+  restartTimer();
+});
+
+prevBtn.addEventListener("click", () => {
+  switchTrip(findNextTrip(currentTripIndex,-1), true);
+});
+
+nextBtn.addEventListener("click", () => {
+  switchTrip(findNextTrip(currentTripIndex,1), true);
+});
+
+restartBtn.addEventListener("click", () => {
+  currentStepIndex = 0;
+  latestRoute = [];
+  latestStopFractions = [];
+  render();
+  restartTimer();
+});
+
+toggleTrailBtn.addEventListener("click", () => {
+  showTrail = !showTrail;
+  toggleTrailBtn.textContent = showTrail ? "Hide Trail" : "Show Trail";
+  render();
+});
+
+panelToggleBtn.addEventListener("click", () => {
+  controlPanel.classList.toggle("compact");
+  panelToggleBtn.textContent =
+    controlPanel.classList.contains("compact") ? "Expand" : "Collapse";
+});
+
+/* ============================================================
+   INITIAL LOAD
+============================================================ */
+
+const DEFAULT_COMBINED_CONFIG_URL = "./port_road_and_warehouse_zones.json";
+
+function hasSavedBrowserMapConfig() {
+  return Boolean(
+    localStorage.getItem(ROAD_STORAGE_KEY) ||
+    localStorage.getItem(WAREHOUSE_ZONE_STORAGE_KEY)
+  );
+}
+
+async function loadHostedDefaultCombinedConfig() {
+  try {
+    const response = await fetch(DEFAULT_COMBINED_CONFIG_URL, { cache: "no-store" });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const parsed = await response.json();
+    const importedRoad =
+      parsed.manualRoadSegments ||
+      parsed.roadSegments ||
+      parsed.manualRoad ||
+      parsed.portRoad;
+    const importedZones = parsed.warehouseZones || parsed.zones;
+
+    if (!Array.isArray(importedRoad)) {
+      throw new Error("Default config does not contain a valid manualRoadSegments array.");
+    }
+
+    if (!importedZones || typeof importedZones !== "object") {
+      throw new Error("Default config does not contain a valid warehouseZones object.");
+    }
+
+    manualRoadSegments = importedRoad;
+
+    WAREHOUSE_ZONE_NAMES.forEach(name => {
+      warehouseZones[name] = Array.isArray(importedZones[name])
+        ? importedZones[name]
+        : [];
+    });
+
+    manualRoadGraph = null;
+    renderManualRoad();
+    renderWarehouseZones();
+    updateSummary();
+    renderAnalytics();
+    render();
+
+    const zoneCounts = WAREHOUSE_ZONE_NAMES
+      .map(name => `${name}:${warehouseZones[name].length}`)
+      .join(" | ");
+
+    setRoutingStatus(
+      `loaded hosted default road with ${manualRoadSegments.length} segment(s)`
+    );
+
+    if (combinedConfigStatus) {
+      combinedConfigStatus.textContent =
+        `Loaded hosted default setup | road segments: ${manualRoadSegments.length} | ${zoneCounts}`;
+    }
+
+    return true;
+  } catch (err) {
+    console.warn("Hosted default road/zone config could not be loaded:", err);
+
+    if (combinedConfigStatus) {
+      combinedConfigStatus.textContent =
+        "Hosted default setup unavailable. You can still import a combined JSON manually.";
+    }
+
+    return false;
+  }
+}
+
+async function initializeMapConfiguration() {
+  if (hasSavedBrowserMapConfig()) {
+    loadManualRoad();
+    loadWarehouseZones();
+    renderManualRoad();
+    renderWarehouseZones();
+
+    if (combinedConfigStatus) {
+      combinedConfigStatus.textContent =
+        "Loaded road/zone setup saved in this browser.";
+    }
+
+    return;
+  }
+
+  const loadedHostedDefault = await loadHostedDefaultCombinedConfig();
+
+  if (!loadedHostedDefault) {
+    manualRoadSegments = [];
+    warehouseZones = {W1:[], W2:[], W3:[], W4:[], W5:[]};
+    renderManualRoad();
+    renderWarehouseZones();
+    setRoutingStatus("no saved or hosted manual road found");
+  }
+}
+
+initializeMapConfiguration();
+</script>
+</body>
+</html>
